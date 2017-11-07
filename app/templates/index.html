@@ -3,8 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <title>Title</title>
+    <link rel="stylesheet" href={{url_for('static', filename='css/dropzone.css')}}>
+    <script defer src={{url_for('static', filename='js/lib/dropzone.js')}}></script>
 </head>
 <body>
-<p></p>
+<form id="csv-upload" action="/csvs" method='POST' class="dropzone"></form>
 </body>
 </html>

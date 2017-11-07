@@ -12,3 +12,5 @@ else:
 db = SQLAlchemy(app)
 
 from app import views, models
+from app.database_utils import *
+

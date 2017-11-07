@@ -1,28 +1,35 @@
 import os
 from app.models import *
 from app import db
+from io import StringIO
+
+file_name_switcher = {
+    'courses.csv': Course,
+    'instructors.csv': Instructor,
+    'listings.csv': Listing,
+    'prereqs.csv': Prereq,
+    'programs.csv': Program,
+    'records.csv': AcademicRecord,
+    'requests.csv': Request,
+    'students.csv': Student
+}
 
 
-def import_csvs(rootdir='testcases/test_case1'):
+def import_csv(file):
+    if file.filename in file_name_switcher:
+        # load files into database after conversion from binary files to text-mode files
+        file_name_switcher[file.filename].load_csv_by_file(StringIO(file.read().decode(), newline=None))
+
+
+def import_csvs(rootdir='testcases/test_case1', exclusions={'requests.csv'}):
+    # TODO: handle requestsx.csv, where x is the sequence number of the request file
+
     for subdir, dirs, files in os.walk(rootdir):
         for file in files:
             path = os.path.join(subdir, file)
-            if file == 'courses.csv':
-                Course.load_csv(path)
-            elif file == 'instructors.csv':
-                Instructor.load_csv(path)
-            elif file == 'listings.csv':
-                Listing.load_csv(path)
-            elif file == 'prereqs.csv':
-                Prereq.load_csv(path)
-            elif file == 'programs.csv':
-                Program.load_csv(path)
-            elif file == 'records.csv':
-                AcademicRecord.load_csv(path)
-            elif file == 'requests.csv':
-                Request.load_csv(path)
-            elif file == 'students.csv':
-                Student.load_csv(path)
+
+            if file in file_name_switcher and (exclusions is None or file not in exclusions):
+                file_name_switcher[file].load_csv(path)
 
 
 def clear_db():
