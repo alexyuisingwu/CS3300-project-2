@@ -18,7 +18,7 @@ class MyMixin(object):
                 yield row
 
     @classmethod
-    def load_csv_helper(cls, csv_reader_generator):
+    def load_csv_helper(cls, csv_reader_generator, connection=None):
         rows = []
         for row in csv_reader_generator:
 
@@ -28,18 +28,18 @@ class MyMixin(object):
 
             row['user_id'] = session['user_id']
             rows.append(row)
-        db.engine.execute(
-            cls.__table__.insert(),
-            rows,
-            autocommit=True)
+        if connection is None:
+            db.engine.execute(cls.__table__.insert(), rows, autocommit=True)
+        else:
+            connection.execute(cls.__table__.insert(), rows)
 
     @classmethod
-    def load_csv(cls, csv_filepath):
-        cls.load_csv_helper(cls.parse_csv(csv_filepath))
+    def load_csv(cls, csv_filepath, connection=None):
+        cls.load_csv_helper(cls.parse_csv(csv_filepath), connection)
 
     @classmethod
-    def load_csv_by_file(cls, f):
-        cls.load_csv_helper(cls.parse_csv_by_file(f))
+    def load_csv_by_file(cls, f, connection=None):
+        cls.load_csv_helper(cls.parse_csv_by_file(f), connection)
 
 
 class Course(db.Model, MyMixin):
@@ -60,8 +60,8 @@ class Prereq(db.Model, MyMixin):
     user_id = db.Column(Integer)
     course_id = db.Column(Integer, nullable=False)
     prereq_id = db.Column(Integer, nullable=False)
-    ForeignKeyConstraint([user_id, course_id], [Course.user_id, Course.id])
-    ForeignKeyConstraint([user_id, course_id], [Course.user_id, Course.id])
+    ForeignKeyConstraint([user_id, course_id], [Course.user_id, Course.id], deferrable=True)
+    ForeignKeyConstraint([user_id, course_id], [Course.user_id, Course.id], deferrable=True)
 
     PrimaryKeyConstraint(user_id, course_id, prereq_id)
 
@@ -81,7 +81,7 @@ class Instructor(db.Model, MyMixin):
     # NOTE: can't be unique as = 0 when instructor not teaching course
     course_id = db.Column(Integer, nullable=False)
     PrimaryKeyConstraint(user_id, id)
-    ForeignKeyConstraint([user_id, course_id], [Course.user_id, Course.id])
+    ForeignKeyConstraint([user_id, course_id], [Course.user_id, Course.id], deferrable=True)
 
     # @classmethod
     # def parse_csv_by_file(cls, f):
@@ -118,7 +118,7 @@ class Student(db.Model, MyMixin):
     phone = db.Column(Integer, unique=True, nullable=False)
     program_id = db.Column(Integer, nullable=False)
     PrimaryKeyConstraint(user_id, id)
-    ForeignKeyConstraint([user_id, program_id], [Program.user_id, Program.id])
+    ForeignKeyConstraint([user_id, program_id], [Program.user_id, Program.id], deferrable=True)
 
     @classmethod
     def parse_csv_by_file(cls, f):
@@ -138,8 +138,8 @@ class AcademicRecord(db.Model, MyMixin):
     # TODO: consider converting to enum (1, 2, 3, 4) for (Winter, Spring, Summer, Fall)
     term = db.Column(SmallInteger, nullable=False)
     PrimaryKeyConstraint(user_id, student_id, course_id, year, term)
-    ForeignKeyConstraint([user_id, student_id], [Student.user_id, Student.id])
-    ForeignKeyConstraint([user_id, course_id], [Course.user_id, Course.id])
+    ForeignKeyConstraint([user_id, student_id], [Student.user_id, Student.id], deferrable=True)
+    ForeignKeyConstraint([user_id, course_id], [Course.user_id, Course.id], deferrable=True)
 
     @classmethod
     def parse_csv_by_file(cls, f):
@@ -153,7 +153,7 @@ class Listing(db.Model, MyMixin):
     program_id = db.Column(Integer, nullable=False)
     course_id = db.Column(Integer, nullable=False)
     PrimaryKeyConstraint(user_id, program_id, course_id)
-    ForeignKeyConstraint([user_id, program_id], [Program.user_id, Program.id])
+    ForeignKeyConstraint([user_id, program_id], [Program.user_id, Program.id], deferrable=True)
 
     @classmethod
     def parse_csv_by_file(cls, f):
@@ -167,8 +167,8 @@ class Request(db.Model, MyMixin):
     student_id = db.Column(Integer, nullable=False)
     course_id = db.Column(Integer, nullable=False)
     PrimaryKeyConstraint(user_id, student_id, course_id)
-    ForeignKeyConstraint([user_id, student_id], [Student.user_id, Student.id])
-    ForeignKeyConstraint([user_id, course_id], [Course.user_id, Course.id])
+    ForeignKeyConstraint([user_id, student_id], [Student.user_id, Student.id], deferrable=True)
+    ForeignKeyConstraint([user_id, course_id], [Course.user_id, Course.id], deferrable=True)
 
     @classmethod
     def parse_csv_by_file(cls, f):

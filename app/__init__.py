@@ -1,8 +1,10 @@
 from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
 from os import environ
+from flask_wtf import CSRFProtect
 
 app = Flask(__name__)
+csrf = CSRFProtect(app)
 
 if environ.get('IS_HEROKU'):
     app.config.from_object('config.ProductionConfig')

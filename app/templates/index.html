@@ -3,10 +3,65 @@
 <head>
     <meta charset="UTF-8">
     <title>Title</title>
-    <link rel="stylesheet" href={{url_for('static', filename='css/dropzone.css')}}>
-    <script defer src={{url_for('static', filename='js/lib/dropzone.js')}}></script>
+    <link rel="stylesheet" href={{url_for('static', filename='css/dropzone.css' )}}>
+    <script src={{url_for('static', filename='js/lib/dropzone.js' )}}></script>
 </head>
 <body>
-<form id="csv-upload" action="/csvs" method='POST' class="dropzone"></form>
+
+<form id="csv-upload" action="/csvs" method='POST' class="dropzone" enctype="multipart/form-data">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/> <br>
+</form>
+<button type="button" id="upload-csv-button">Upload</button>
+
+
+<!--<form method="POST" action="/" enctype="multipart/form-data">-->
+    <!--<input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/> <br>-->
+    <!--<input type="file" name="course-file"> <br>-->
+    <!--<input type="file" name="instructor-file"> <br>-->
+    <!--<input type="file" name="listing-file"> <br>-->
+    <!--<input type="file" name="prereq-file"> <br>-->
+    <!--<input type="file" name="program-file"> <br>-->
+    <!--<input type="file" name="record-file"> <br>-->
+    <!--<input type="file" name="student-file"> <br>-->
+    <!--<input type="submit" value="Go">-->
+<!--</form>-->
+
+<script>
+    Dropzone.options.csvUpload = {
+
+        autoProcessQueue: false,
+        uploadMultiple: true,
+        parallelUploads: 100,
+        maxFiles: 100,
+
+        init: function() {
+            var submitButton = document.getElementById('upload-csv-button')
+            var courseUpload = this;
+
+            submitButton.addEventListener("click", function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                courseUpload.processQueue();
+            });
+
+            this.on("success", function() {
+               this.options.autoProcessQueue = true;
+            });
+
+            this.on("sendingmultiple", function() {
+              // Gets triggered when the form is actually being sent.
+            });
+
+            this.on("successmultiple", function(files, response) {
+              // Gets triggered when the files have successfully been sent.
+            });
+
+            this.on("errormultiple", function(files, response) {
+              // Gets triggered when there was an error sending the files.
+            });
+        }
+    };
+</script>
+
 </body>
 </html>
