@@ -115,7 +115,7 @@ class Student(db.Model, MyMixin):
     id = db.Column(Integer)
     name = db.Column(String(255), nullable=False)
     address = db.Column(String(255), nullable=False)
-    phone = db.Column(Integer, unique=True, nullable=False)
+    phone = db.Column(String(15), unique=True, nullable=False)
     program_id = db.Column(Integer, nullable=False)
     PrimaryKeyConstraint(user_id, id)
     ForeignKeyConstraint([user_id, program_id], [Program.user_id, Program.id], deferrable=True)
