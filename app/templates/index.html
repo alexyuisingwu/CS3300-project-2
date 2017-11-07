@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Title</title>
+    <title>Course Management Simulation</title>
     <link rel="stylesheet" href={{url_for('static', filename='css/dropzone.css' )}}>
     <script src={{url_for('static', filename='js/lib/dropzone.js' )}}></script>
 </head>
@@ -54,6 +54,7 @@
 
             this.on("successmultiple", function(files, response) {
               // Gets triggered when the files have successfully been sent.
+              window.location = "{{url_for('assign_instructors')}}"
             });
 
             this.on("errormultiple", function(files, response) {

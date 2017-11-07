@@ -5,7 +5,7 @@ from sqlalchemy.ext.declarative import declared_attr
 from flask import session
 import csv
 
-
+# TODO: re-enable foreign key constraints and save unassigned (0) values as null instead
 class MyMixin(object):
     @classmethod
     def parse_csv_by_file(cls, f):
