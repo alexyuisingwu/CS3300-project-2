@@ -79,11 +79,18 @@ class Instructor(db.Model, MyMixin):
     course_id = db.Column(Integer, ForeignKey(Course.id), nullable=False)
     PrimaryKeyConstraint(user_id, id)
 
+    # @classmethod
+    # def parse_csv_by_file(cls, f):
+    #     reader = csv.reader(f, delimiter=',')
+    #     for row in reader:
+    #         yield {'id': row[0], 'name': row[1], 'office_hours': row[2], 'email': row[3], 'course_id': row[4]}
+
+    # course_id ignored for now in initial csv import
     @classmethod
     def parse_csv_by_file(cls, f):
         reader = csv.reader(f, delimiter=',')
         for row in reader:
-            yield {'id': row[0], 'name': row[1], 'office_hours': row[2], 'email': row[3], 'course_id': row[4]}
+            yield {'id': row[0], 'name': row[1], 'office_hours': row[2], 'email': row[3], 'course_id': 0}
 
 
 class Program(db.Model, MyMixin):
