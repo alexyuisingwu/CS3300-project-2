@@ -1,6 +1,6 @@
 from app import db
 from sqlalchemy.types import *
-from sqlalchemy import ForeignKey, UniqueConstraint, PrimaryKeyConstraint
+from sqlalchemy import ForeignKey, UniqueConstraint, ForeignKeyConstraint, PrimaryKeyConstraint
 from sqlalchemy.ext.declarative import declared_attr
 from flask import session
 import csv
@@ -58,8 +58,11 @@ class Course(db.Model, MyMixin):
 
 class Prereq(db.Model, MyMixin):
     user_id = db.Column(Integer)
-    course_id = db.Column(Integer, ForeignKey(Course.id), nullable=False)
-    prereq_id = db.Column(Integer, ForeignKey(Course.id), nullable=False)
+    course_id = db.Column(Integer, nullable=False)
+    prereq_id = db.Column(Integer, nullable=False)
+    ForeignKeyConstraint([user_id, course_id], [Course.user_id, Course.id])
+    ForeignKeyConstraint([user_id, course_id], [Course.user_id, Course.id])
+
     PrimaryKeyConstraint(user_id, course_id, prereq_id)
 
     @classmethod
@@ -76,8 +79,9 @@ class Instructor(db.Model, MyMixin):
     office_hours = db.Column(String(255), nullable=False)
     email = db.Column(String(255), nullable=False)
     # NOTE: can't be unique as = 0 when instructor not teaching course
-    course_id = db.Column(Integer, ForeignKey(Course.id), nullable=False)
+    course_id = db.Column(Integer, nullable=False)
     PrimaryKeyConstraint(user_id, id)
+    ForeignKeyConstraint([user_id, course_id], [Course.user_id, Course.id])
 
     # @classmethod
     # def parse_csv_by_file(cls, f):
@@ -112,8 +116,9 @@ class Student(db.Model, MyMixin):
     name = db.Column(String(255), nullable=False)
     address = db.Column(String(255), nullable=False)
     phone = db.Column(Integer, unique=True, nullable=False)
-    program_id = db.Column(Integer, ForeignKey(Program.id), nullable=False)
+    program_id = db.Column(Integer, nullable=False)
     PrimaryKeyConstraint(user_id, id)
+    ForeignKeyConstraint([user_id, program_id], [Program.user_id, Program.id])
 
     @classmethod
     def parse_csv_by_file(cls, f):
@@ -125,14 +130,16 @@ class Student(db.Model, MyMixin):
 # NOTE: table name is Academic_Record
 class AcademicRecord(db.Model, MyMixin):
     user_id = db.Column(Integer)
-    student_id = db.Column(Integer, ForeignKey(Student.id), nullable=False)
-    course_id = db.Column(Integer, ForeignKey(Course.id), nullable=False)
+    student_id = db.Column(Integer, nullable=False)
+    course_id = db.Column(Integer, nullable=False)
     # TODO: consider converting to enum (A, B, C, D, F)
     grade = db.Column(CHAR(1), nullable=False)
     year = db.Column(SmallInteger, nullable=False)
     # TODO: consider converting to enum (1, 2, 3, 4) for (Winter, Spring, Summer, Fall)
     term = db.Column(SmallInteger, nullable=False)
     PrimaryKeyConstraint(user_id, student_id, course_id, year, term)
+    ForeignKeyConstraint([user_id, student_id], [Student.user_id, Student.id])
+    ForeignKeyConstraint([user_id, course_id], [Course.user_id, Course.id])
 
     @classmethod
     def parse_csv_by_file(cls, f):
@@ -143,9 +150,10 @@ class AcademicRecord(db.Model, MyMixin):
 
 class Listing(db.Model, MyMixin):
     user_id = db.Column(Integer)
-    program_id = db.Column(Integer, ForeignKey(Program.id), nullable=False)
-    course_id = db.Column(Integer, ForeignKey(Course.id), nullable=False)
+    program_id = db.Column(Integer, nullable=False)
+    course_id = db.Column(Integer, nullable=False)
     PrimaryKeyConstraint(user_id, program_id, course_id)
+    ForeignKeyConstraint([user_id, program_id], [Program.user_id, Program.id])
 
     @classmethod
     def parse_csv_by_file(cls, f):
@@ -156,9 +164,11 @@ class Listing(db.Model, MyMixin):
 
 class Request(db.Model, MyMixin):
     user_id = db.Column(Integer)
-    student_id = db.Column(Integer, ForeignKey(Student.id), nullable=False)
-    course_id = db.Column(Integer, ForeignKey(Course.id), nullable=False)
+    student_id = db.Column(Integer, nullable=False)
+    course_id = db.Column(Integer, nullable=False)
     PrimaryKeyConstraint(user_id, student_id, course_id)
+    ForeignKeyConstraint([user_id, student_id], [Student.user_id, Student.id])
+    ForeignKeyConstraint([user_id, course_id], [Course.user_id, Course.id])
 
     @classmethod
     def parse_csv_by_file(cls, f):
