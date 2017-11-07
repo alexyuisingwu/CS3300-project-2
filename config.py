@@ -7,7 +7,7 @@ class Config(object):
 
 class ProductionConfig(Config):
     SECRET_KEY = environ.get('SECRET_KEY')
-    SQLALCHEMY_DATABASE_URI = environ.get('DATABASE_URI')
+    SQLALCHEMY_DATABASE_URI = environ.get('DATABASE_URL')
     DEBUG = False
     TESTING = False
 
