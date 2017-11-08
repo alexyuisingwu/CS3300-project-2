@@ -3,6 +3,7 @@ from os import environ, urandom
 
 class Config(object):
     SQLALCHEMY_TRACK_MODIFICATIONS = False
+    BCRYPT_HANDLE_LONG_PASSWORDS = True
 
 
 class ProductionConfig(Config):

@@ -4,21 +4,58 @@ from app.database_utils import *
 from app.forms import *
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy import text
+from app.forms import RegistrationForm, LoginForm
+from app.models import Account
+from flask_login import login_user, logout_user, login_required, current_user
 
 
 # TODO: implement accounts+login
 
 @app.route('/')
 def index():
-    clear_db()
-    # import_csvs()
-    session['term'] = 0
+    if current_user.is_anonymous:
+        return redirect(url_for('login'))
 
     return render_template('index.html')
 
 
+@app.route('/register', methods=['GET', 'POST'])
+def register():
+    form = RegistrationForm()
+    if request.method == 'POST':
+        if form.validate_on_submit():
+            username = request.form['username']
+            email = request.form['email']
+            passhash = Account.get_hashed_password(request.form['password'])
+            query = text('insert into account (username, email, passhash) values (:username, :email, :passhash)')
+            db.engine.execute(query.execution_options(autocommit=True), username=username, email=email,
+                              passhash=passhash)
+            return redirect(url_for('login'))
+    return render_template('register.html', form=form)
+
+
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    form = LoginForm()
+    if request.method == 'POST':
+        if form.validate_on_submit():
+            username = request.form['username']
+            user = Account.query.filter_by(username=username).first()
+            login_user(user)
+            return redirect(url_for('index'))
+    return render_template('login.html', form=form)
+
+
+@app.route('/logout', methods=['POST'])
+@login_required
+def signout():
+    logout_user()
+    return redirect(url_for('index'))
+
+
 # TODO: error messages for upload problems
 @app.route('/csvs', methods=['GET', 'POST'])
+@login_required
 def upload_csvs():
     files = request.files.values()
     with db.engine.begin() as connection:
@@ -32,6 +69,7 @@ def upload_csvs():
 
 
 @app.route('/assign-instructors', methods=['GET', 'POST'])
+@login_required
 def assign_instructors():
     # TODO: change when users implemented
     user_id = session.get('user_id', 1)

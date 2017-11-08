@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Register</title>
+</head>
+<body>
+{% from "form-helpers.html" import render_field %}
+<form method=post action="/register">
+    {{ form.csrf_token }}
+  <dl>
+    {{ render_field(form.username) }}
+    {{ render_field(form.email) }}
+    {{ render_field(form.password) }}
+    {{ render_field(form.confirm_password) }}
+  </dl>
+  <p><input type=submit value=Register>
+</form>
+<a href="{{url_for('login')}}">Already registered? Log in here!</a>
+
+</body>
+</html>

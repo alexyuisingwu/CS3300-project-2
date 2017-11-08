@@ -1,10 +1,13 @@
-from app import db
+from app import db, bcrypt
 from sqlalchemy.types import *
-from sqlalchemy import ForeignKey, UniqueConstraint, ForeignKeyConstraint, PrimaryKeyConstraint
+from sqlalchemy import ForeignKey, UniqueConstraint, ForeignKeyConstraint, PrimaryKeyConstraint, text
+from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.ext.declarative import declared_attr
 from flask import session
 import csv
 from os import environ
+from flask_login import UserMixin, current_user
+
 
 # TODO: consider adding indices on (user_id, name) for tables like Instructor
 # TODO: re-enable foreign key constraints and save unassigned (0) values as null instead
@@ -23,12 +26,8 @@ class MyMixin(object):
     def load_csv_helper(cls, csv_reader_generator, connection=None):
         rows = []
         for row in csv_reader_generator:
-
-            # TODO: remove after login/registration implemented
-            if 'user_id' not in session:
-                session['user_id'] = 1
-
-            row['user_id'] = session['user_id']
+            user_id = current_user.id
+            row['user_id'] = user_id
             rows.append(row)
         if connection is None:
             db.engine.execute(cls.__table__.insert(), rows, autocommit=True)
@@ -44,6 +43,22 @@ class MyMixin(object):
     @classmethod
     def load_csv_by_file(cls, f, connection=None):
         cls.load_csv_helper(cls.parse_csv_by_file(f), connection)
+
+
+# "user" is a reserved word in postgresql
+class Account(db.Model, UserMixin):
+    id = db.Column(Integer, primary_key=True, autoincrement=True)
+    username = db.Column(String(255), nullable=False, unique=True)
+    email = db.Column(String(255), nullable=False, unique=True)
+    passhash = db.Column(db.String(128), nullable=False)
+    current_term = db.Column(Integer, nullable=False, server_default=text("0"))
+
+    @classmethod
+    def get_hashed_password(cls, password):
+        return bcrypt.generate_password_hash(password).decode('utf-8')
+
+    def validate_password(self, password):
+        return bcrypt.check_password_hash(self.passhash, password)
 
 
 class Course(db.Model, MyMixin):

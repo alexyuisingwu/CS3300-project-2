@@ -2,6 +2,11 @@ from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
 from os import environ
 from flask_wtf import CSRFProtect
+from flask_bcrypt import Bcrypt
+from flask_login import LoginManager
+from sqlalchemy.engine import Engine
+from sqlalchemy import event
+from flask_login import LoginManager
 
 app = Flask(__name__)
 csrf = CSRFProtect(app)
@@ -12,9 +17,7 @@ else:
     app.config.from_object('config.DevelopmentConfig')
 
 db = SQLAlchemy(app)
-
-from sqlalchemy.engine import Engine
-from sqlalchemy import event
+bcrypt = Bcrypt(app)
 
 
 @event.listens_for(Engine, "connect")
@@ -27,3 +30,12 @@ def set_sqlite_pragma(dbapi_connection, connection_record):
 
 from app import views, models
 from app.database_utils import *
+
+login_manager = LoginManager()
+login_manager.init_app(app)
+login_manager.login_view = 'login'
+
+
+@login_manager.user_loader
+def load_user(user_id):
+    return models.Account.query.filter(Account.id == user_id).first()

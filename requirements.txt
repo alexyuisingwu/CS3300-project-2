@@ -10,3 +10,5 @@ psycopg2==2.7.3.2
 SQLAlchemy==1.1.15
 Werkzeug==0.12.2
 WTForms==2.1
+flask-login==0.4.0
+Flask-Bcrypt==0.7.1
