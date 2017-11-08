@@ -18,6 +18,9 @@
 
 </head>
 <body>
+<h1>{{current_user.current_term | get_term_name}}</h1>
+<h2>Assign Courses</h2>
+
 <form id="assign-instructors" action="/assign-instructors" method="POST">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/> <br>
     <table class="table table-striped">

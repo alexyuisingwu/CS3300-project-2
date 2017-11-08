@@ -1,9 +1,6 @@
 from app import db, bcrypt
 from sqlalchemy.types import *
-from sqlalchemy import ForeignKey, UniqueConstraint, ForeignKeyConstraint, PrimaryKeyConstraint, text
-from sqlalchemy.ext.hybrid import hybrid_property
-from sqlalchemy.ext.declarative import declared_attr
-from flask import session
+from sqlalchemy import ForeignKey, UniqueConstraint, ForeignKeyConstraint, PrimaryKeyConstraint, text, Index
 import csv
 from os import environ
 from flask_login import UserMixin, current_user
@@ -60,12 +57,16 @@ class Account(db.Model, UserMixin):
         return bcrypt.check_password_hash(self.passhash, password)
 
 
+
+
 class Course(db.Model, MyMixin):
     user_id = db.Column(Integer)
     id = db.Column(Integer)
     name = db.Column(String(255), unique=True, nullable=False)
     cost = db.Column(Integer, nullable=False)
     PrimaryKeyConstraint(user_id, id)
+    Index('course_user_id_name_idx', user_id, name, unique=True)
+
 
     @classmethod
     def parse_csv_by_file(cls, f):
@@ -100,6 +101,8 @@ class Instructor(db.Model, MyMixin):
     course_id = db.Column(Integer, nullable=True)
     PrimaryKeyConstraint(user_id, id)
     ForeignKeyConstraint([user_id, course_id], [Course.user_id, Course.id], deferrable=True)
+    Index('instructor_user_id_name_idx', user_id, name)
+
 
     @classmethod
     def parse_csv_by_file(cls, f):
@@ -114,6 +117,8 @@ class Program(db.Model, MyMixin):
     id = db.Column(Integer)
     name = db.Column(String(255), unique=True, nullable=False)
     PrimaryKeyConstraint(user_id, id)
+    Index('program_user_id_name_idx', user_id, name, unique=True)
+
 
     @classmethod
     def parse_csv_by_file(cls, f):
@@ -131,6 +136,8 @@ class Student(db.Model, MyMixin):
     program_id = db.Column(Integer, nullable=True)
     PrimaryKeyConstraint(user_id, id)
     ForeignKeyConstraint([user_id, program_id], [Program.user_id, Program.id], deferrable=True)
+    Index('student_user_id_name_idx', user_id, name)
+
 
     @classmethod
     def parse_csv_by_file(cls, f):

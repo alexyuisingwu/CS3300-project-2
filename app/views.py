@@ -1,12 +1,10 @@
-from flask import url_for, redirect, render_template, session, request, jsonify, abort, json
-from app import app
-from app.database_utils import *
-from app.forms import *
-from sqlalchemy.exc import IntegrityError
-from sqlalchemy import text
-from app.forms import RegistrationForm, LoginForm
-from app.models import Account
+from flask import url_for, redirect, render_template, request, json, abort
 from flask_login import login_user, logout_user, login_required, current_user
+from sqlalchemy import text
+from app import app
+from app.forms import RegistrationForm, LoginForm
+from app.utils.database_utils import *
+from app.utils.utils import *
 
 
 @app.route('/')
@@ -35,12 +33,14 @@ def register():
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     form = LoginForm()
-    if request.method == 'POST':
-        if form.validate_on_submit():
-            username = request.form['username']
-            user = Account.query.filter_by(username=username).first()
-            login_user(user)
-            return redirect(url_for('index'))
+    if form.validate_on_submit():
+        username = request.form['username']
+        user = Account.query.filter_by(username=username).first()
+        login_user(user)
+        next_page = request.args.get('next')
+        if not is_safe_url(next_page):
+            return abort(400)
+        return redirect(next_page or url_for('index'))
     return render_template('login.html', form=form)
 
 
@@ -69,7 +69,6 @@ def upload_csvs():
 @app.route('/assign-instructors', methods=['GET', 'POST'])
 @login_required
 def assign_instructors():
-    # TODO: change when users implemented
     user_id = current_user.id
     if request.method == 'GET':
         query = text('select * from course where user_id = :user_id')

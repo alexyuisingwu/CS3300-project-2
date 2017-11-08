@@ -1,12 +1,12 @@
-from flask import Flask
-from flask_sqlalchemy import SQLAlchemy
 from os import environ
-from flask_wtf import CSRFProtect
+
+from flask import Flask
 from flask_bcrypt import Bcrypt
 from flask_login import LoginManager
-from sqlalchemy.engine import Engine
+from flask_sqlalchemy import SQLAlchemy
+from flask_wtf import CSRFProtect
 from sqlalchemy import event
-from flask_login import LoginManager
+from sqlalchemy.engine import Engine
 
 app = Flask(__name__)
 csrf = CSRFProtect(app)
@@ -29,7 +29,7 @@ def set_sqlite_pragma(dbapi_connection, connection_record):
 
 
 from app import views, models
-from app.database_utils import *
+from app.utils.database_utils import *
 
 login_manager = LoginManager()
 login_manager.init_app(app)
