@@ -9,8 +9,6 @@ from app.models import Account
 from flask_login import login_user, logout_user, login_required, current_user
 
 
-# TODO: implement accounts+login
-
 @app.route('/')
 def index():
     if current_user.is_anonymous:
@@ -48,7 +46,7 @@ def login():
 
 @app.route('/logout', methods=['POST'])
 @login_required
-def signout():
+def logout():
     logout_user()
     return redirect(url_for('index'))
 
@@ -72,7 +70,7 @@ def upload_csvs():
 @login_required
 def assign_instructors():
     # TODO: change when users implemented
-    user_id = session.get('user_id', 1)
+    user_id = current_user.id
     if request.method == 'GET':
         query = text('select * from course where user_id = :user_id')
         courses = db.engine.execute(query.execution_options(autocommit=True), user_id=user_id).fetchall()
@@ -89,3 +87,18 @@ def assign_instructors():
                 db.engine.execute(query.execution_options(autocommit=True), course_id=int(course_id), user_id=user_id,
                                   instructor_name=instructor_name)
         pass
+
+
+@app.template_filter('get_term_name')
+def get_term_name(s):
+    term_dict = {
+        0: 'Fall',
+        1: 'Spring',
+        2: 'Winter',
+        3: 'Summer'
+    }
+    term_num = int(s)
+    year_offset, season_num = divmod(term_num, 4)
+    season = term_dict[season_num]
+    year = 2017 + year_offset
+    return season + ' ' + str(year)

@@ -10,7 +10,6 @@ from flask_login import UserMixin, current_user
 
 
 # TODO: consider adding indices on (user_id, name) for tables like Instructor
-# TODO: re-enable foreign key constraints and save unassigned (0) values as null instead
 class MyMixin(object):
     @classmethod
     def parse_csv_by_file(cls, f):

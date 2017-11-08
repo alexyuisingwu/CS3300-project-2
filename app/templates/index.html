@@ -14,41 +14,44 @@
 <button type="button" id="upload-csv-button">Upload</button>
 
 <script>
-    Dropzone.options.csvUpload = {
+    function multiUploadDropzone(dropzoneName, successHandler, errorHandler) {
+        Dropzone.options[dropzoneName] = {
 
-        autoProcessQueue: false,
-        uploadMultiple: true,
-        parallelUploads: 100,
-        maxFiles: 100,
+            autoProcessQueue: false,
+            uploadMultiple: true,
+            parallelUploads: 100,
+            maxFiles: 100,
 
-        init: function() {
-            var submitButton = document.getElementById('upload-csv-button')
-            var courseUpload = this;
+            init: function() {
+                var submitButton = document.getElementById('upload-csv-button')
+                var courseUpload = this;
 
-            submitButton.addEventListener("click", function(e) {
-                e.preventDefault();
-                e.stopPropagation();
-                courseUpload.processQueue();
-            });
+                submitButton.addEventListener("click", function(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    courseUpload.processQueue();
+                });
 
-            this.on("success", function() {
-               this.options.autoProcessQueue = true;
-            });
+                this.on("success", function() {
+                   this.options.autoProcessQueue = true;
+                });
 
-            this.on("sendingmultiple", function() {
-              // Gets triggered when the form is actually being sent.
-            });
+                this.on("sendingmultiple", function() {
+                  // Gets triggered when the form is actually being sent.
+                });
 
-            this.on("successmultiple", function(files, response) {
-              // Gets triggered when the files have successfully been sent.
-              window.location = "{{url_for('assign_instructors')}}"
-            });
+                this.on("successmultiple", successHandler);
 
-            this.on("errormultiple", function(files, response) {
-              // Gets triggered when there was an error sending the files.
-            });
-        }
-    };
+                this.on("errormultiple", errorHandler);
+            }
+        };
+    }
+
+    multiUploadDropzone('csvUpload', (files, response) => {
+                  // Gets triggered when the files have successfully been sent.
+                  window.location = "{{url_for('assign_instructors')}}"
+                });
+
 </script>
 
 </body>
