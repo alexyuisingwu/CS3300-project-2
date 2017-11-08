@@ -17,34 +17,37 @@
 
 </head>
 <body>
-
-<table class="table table-striped">
-    <thead>
-    <tr>
-        <th>Id</th>
-        <th>Name</th>
-        <th>Cost</th>
-        <th>Instructor</th>
-    </tr>
-    </thead>
-    <tbody>
-    {% for course in courses %}
-    <tr>
-        <td>{{ course.id }}</td>
-        <td>{{ course.name }}</td>
-        <td>${{ course.cost }}</td>
-        <td>
-            <select id={{course.id}} class="selectpicker" data-live-search="true">
-                <option id="-1"></option>
-                {% for instructor in instructors %}
-                <option name="instructor_option">{{instructor.name}}</option>
-                {% endfor %}
-            </select>
-        </td>
-    </tr>
-    {% endfor %}
-    </tbody>
-</table>
+<form id="assign-instructors" action="/assign-instructors" method="POST">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/> <br>
+    <table class="table table-striped">
+        <thead>
+        <tr>
+            <th>Id</th>
+            <th>Name</th>
+            <th>Cost</th>
+            <th>Instructor</th>
+        </tr>
+        </thead>
+        <tbody>
+        {% for course in courses %}
+        <tr>
+            <td>{{ course.id }}</td>
+            <td>{{ course.name }}</td>
+            <td>${{ course.cost }}</td>
+            <td>
+                <select id={{course.id}} class="selectpicker" data-live-search="true" name={{course.id}}>
+                    <option id="-1"></option>
+                    {% for instructor in instructors %}
+                    <option name="instructor_option">{{instructor.name}}</option>
+                    {% endfor %}
+                </select>
+            </td>
+        </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    <button type="submit" id="save-instructor-assignments-button">Save Assignments</button>
+</form>
 
 <script>
     $(document).ready(() => {
@@ -73,7 +76,6 @@
             selects.selectpicker('refresh');
         });
     });
-
 </script>
 
 
