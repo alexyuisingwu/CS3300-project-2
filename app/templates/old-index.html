@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Course Management Simulation</title>
+    <link rel="stylesheet" href={{url_for('static', filename='css/dropzone.css' )}}>
+    <script src={{url_for('static', filename='js/lib/dropzone.js' )}}></script>
+    <script src="{{url_for('static', filename='js/dropzone-utils.js')}}"></script>
+</head>
+<body>
+
+<form id="csv-upload" action="/csvs" method='POST' class="dropzone" enctype="multipart/form-data">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/> <br>
+</form>
+<button type="button" id="upload-csv-button">Upload</button>
+
+<script>
+
+    multiUploadDropzone('csvUpload', (files, response) => {
+      // Gets triggered when the files have successfully been sent.
+      window.location = "{{url_for('assign_instructors')}}"
+    });
+
+</script>
+
+</body>
+</html>

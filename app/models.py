@@ -6,7 +6,7 @@ from os import environ
 from flask_login import UserMixin, current_user
 
 
-# TODO: consider adding indices on (user_id, name) for tables like Instructor
+# TODO: find out if simulation allows for uploading csvs/data. Otherwise, some tables can have user_id removed (like course)
 class MyMixin(object):
     @classmethod
     def parse_csv_by_file(cls, f):
@@ -57,16 +57,14 @@ class Account(db.Model, UserMixin):
         return bcrypt.check_password_hash(self.passhash, password)
 
 
-
-
 class Course(db.Model, MyMixin):
     user_id = db.Column(Integer)
     id = db.Column(Integer)
-    name = db.Column(String(255), unique=True, nullable=False)
+    name = db.Column(String(255), nullable=False)
     cost = db.Column(Integer, nullable=False)
     PrimaryKeyConstraint(user_id, id)
+    UniqueConstraint(user_id, name)
     Index('course_user_id_name_idx', user_id, name, unique=True)
-
 
     @classmethod
     def parse_csv_by_file(cls, f):
@@ -103,7 +101,6 @@ class Instructor(db.Model, MyMixin):
     ForeignKeyConstraint([user_id, course_id], [Course.user_id, Course.id], deferrable=True)
     Index('instructor_user_id_name_idx', user_id, name)
 
-
     @classmethod
     def parse_csv_by_file(cls, f):
         reader = csv.reader(f, delimiter=',')
@@ -115,10 +112,10 @@ class Instructor(db.Model, MyMixin):
 class Program(db.Model, MyMixin):
     user_id = db.Column(Integer)
     id = db.Column(Integer)
-    name = db.Column(String(255), unique=True, nullable=False)
+    name = db.Column(String(255), nullable=False)
     PrimaryKeyConstraint(user_id, id)
+    UniqueConstraint(user_id, name)
     Index('program_user_id_name_idx', user_id, name, unique=True)
-
 
     @classmethod
     def parse_csv_by_file(cls, f):
@@ -132,12 +129,12 @@ class Student(db.Model, MyMixin):
     id = db.Column(Integer)
     name = db.Column(String(255), nullable=False)
     address = db.Column(String(255), nullable=False)
-    phone = db.Column(String(15), unique=True, nullable=False)
+    phone = db.Column(String(15), nullable=False)
     program_id = db.Column(Integer, nullable=True)
     PrimaryKeyConstraint(user_id, id)
+    UniqueConstraint(user_id, phone)
     ForeignKeyConstraint([user_id, program_id], [Program.user_id, Program.id], deferrable=True)
     Index('student_user_id_name_idx', user_id, name)
-
 
     @classmethod
     def parse_csv_by_file(cls, f):

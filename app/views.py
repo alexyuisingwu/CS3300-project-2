@@ -3,7 +3,7 @@ from flask_login import login_user, logout_user, login_required, current_user
 from sqlalchemy import text
 from app import app, db
 from app.forms import RegistrationForm, LoginForm
-from app.utils.database_utils import import_csv
+from app.utils.database_utils import import_csv_by_file, import_csvs_by_filepath
 from app.utils.utils import is_safe_url
 from app.models import Account
 from os import environ
@@ -13,8 +13,8 @@ from os import environ
 def index():
     if current_user.is_anonymous:
         return redirect(url_for('login'))
-
-    return render_template('index.html')
+    else:
+        return redirect(url_for('assign_instructors'))
 
 
 @app.route('/register', methods=['GET', 'POST'])
@@ -28,7 +28,13 @@ def register():
             query = text('insert into account (username, email, passhash) values (:username, :email, :passhash)')
             db.engine.execute(query.execution_options(autocommit=True), username=username, email=email,
                               passhash=passhash)
-            return redirect(url_for('login'))
+
+            user = Account.query.filter_by(username=username).first()
+            login_user(user)
+            # TODO: consider adding option to choose test case in UI
+            import_csvs_by_filepath('testcases/test_case1')
+
+            return redirect(url_for('index'))
     return render_template('register.html', form=form)
 
 
@@ -63,7 +69,7 @@ def upload_csvs():
             connection.execute("SET CONSTRAINTS ALL DEFERRED")
 
         for file in files:
-            import_csv(file, connection)
+            import_csv_by_file(file, connection)
 
     return json.dumps({'success': True}), 200, {'ContentType': 'application/json'}
 
