@@ -102,11 +102,13 @@ def assign_instructors():
 def assign_instructors_after_requests():
     user_id = current_user.id
     if request.method == 'GET':
-        query = text("""select course.id, course.name, course.cost, count(*) as num_requests from
-                        course left join request
-                        on course.id = request.course_id
-                        where course.user_id = :user_id
-                        group by course.id""")
+        query = text("""select t1.id, name, cost, num_requests from
+                        (select course.id, count(*) as num_requests from
+                                    course left join request
+                                    on course.id = request.course_id
+                                    where course.user_id = 1
+                                    group by course.id) as t1
+                        inner join course on t1.id = course.id;""")
         courses = db.engine.execute(query.execution_options(autocommit=True), user_id=user_id).fetchall()
         instructors = Instructor.query.filter_by(user_id=user_id)
 
