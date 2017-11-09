@@ -18,8 +18,8 @@
 
 </head>
 <body>
-<h1>{{current_user.current_term | get_term_name}}</h1>
-<h2>Assign Courses</h2>
+<h1>{{get_term_name(current_user.current_term)}}</h1>
+<h3>Assign Courses</h3>
 
 <form id="assign-instructors" action="/assign-instructors" method="POST">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/> <br>

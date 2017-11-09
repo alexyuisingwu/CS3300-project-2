@@ -1,10 +1,12 @@
 from flask import url_for, redirect, render_template, request, json, abort
 from flask_login import login_user, logout_user, login_required, current_user
 from sqlalchemy import text
-from app import app
+from app import app, db
 from app.forms import RegistrationForm, LoginForm
-from app.utils.database_utils import *
-from app.utils.utils import *
+from app.utils.database_utils import import_csv
+from app.utils.utils import is_safe_url
+from app.models import Account
+from os import environ
 
 
 @app.route('/')
@@ -86,18 +88,3 @@ def assign_instructors():
                 db.engine.execute(query.execution_options(autocommit=True), course_id=int(course_id), user_id=user_id,
                                   instructor_name=instructor_name)
         pass
-
-
-@app.template_filter('get_term_name')
-def get_term_name(s):
-    term_dict = {
-        0: 'Fall',
-        1: 'Spring',
-        2: 'Winter',
-        3: 'Summer'
-    }
-    term_num = int(s)
-    year_offset, season_num = divmod(term_num, 4)
-    season = term_dict[season_num]
-    year = 2017 + year_offset
-    return season + ' ' + str(year)
