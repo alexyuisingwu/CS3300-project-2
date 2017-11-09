@@ -106,9 +106,12 @@ def assign_instructors_after_requests():
                         (select course.id, count(*) as num_requests from
                                     course left join request
                                     on course.id = request.course_id
-                                    where course.user_id = 1
+                                    and course.user_id = request.user_id
+                                    and course.user_id = :user_id
                                     group by course.id) as t1
-                        inner join course on t1.id = course.id;""")
+                        inner join course 
+                        on t1.id = course.id
+                        where course.user_id = :user_id;""")
         courses = db.engine.execute(query.execution_options(autocommit=True), user_id=user_id).fetchall()
         instructors = Instructor.query.filter_by(user_id=user_id)
 
