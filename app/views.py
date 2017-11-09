@@ -32,7 +32,7 @@ def register():
             user = Account.query.filter_by(username=username).first()
             login_user(user)
             # TODO: consider adding option to choose test case in UI
-            import_csvs_by_filepath('testcases/test_case1')
+            import_csvs_by_filepath()
 
             return redirect(url_for('index'))
     return render_template('register.html', form=form)

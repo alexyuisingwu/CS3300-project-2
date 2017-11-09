@@ -25,7 +25,7 @@ def import_csv_by_file(file, connection=None):
         file_name_switcher[file.filename].load_csv_by_file(StringIO(file.read().decode(), newline=None), connection)
 
 
-def import_csvs_by_filepath(rootdir='testcases/test_case1', exclusions=None):
+def import_csvs_by_filepath(rootdir='app/static/testcases/test_case1', exclusions=None):
     # TODO: handle requestsx.csv, where x is the sequence number of the request file
     with db.engine.begin() as connection:
         if environ.get('IS_HEROKU'):

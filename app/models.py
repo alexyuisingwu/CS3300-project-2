@@ -2,6 +2,7 @@ from app import db, bcrypt
 from sqlalchemy.types import *
 from sqlalchemy import ForeignKey, UniqueConstraint, ForeignKeyConstraint, PrimaryKeyConstraint, text, Index
 import csv
+import os
 from os import environ
 from flask_login import UserMixin, current_user
 
@@ -192,3 +193,9 @@ class Request(db.Model, MyMixin):
         reader = csv.reader(f, delimiter=',')
         for row in reader:
             yield {'student_id': row[0], 'course_id': row[1]}
+
+    @classmethod
+    def load_current_request_csv(cls, csv_folder):
+        filename = 'requests' + str(current_user.current_term) + '.csv'
+        path = os.path.join(csv_folder, filename)
+        cls.load_csv(path)
