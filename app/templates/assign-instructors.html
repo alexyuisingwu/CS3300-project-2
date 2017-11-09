@@ -30,6 +30,9 @@
             <th>Name</th>
             <th>Cost</th>
             <th>Instructor</th>
+            {% if courses[0].num_requests %}
+                <th>Number of Requests</th>
+            {% endif %}
         </tr>
         </thead>
         <tbody>
@@ -51,6 +54,11 @@
                     {% endfor %}
                 </select>
             </td>
+            {% if course.num_requests %}
+                <td>
+                    {{course.num_requests}}
+                </td>
+            {% endif %}
         </tr>
         {% endfor %}
         </tbody>

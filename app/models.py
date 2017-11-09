@@ -57,6 +57,10 @@ class Account(db.Model, UserMixin):
     def validate_password(self, password):
         return bcrypt.check_password_hash(self.passhash, password)
 
+    def increment_term(self):
+        db.engine.execute('update account set current_term = current_term + 1 where id = {}'.format(self.id))
+        Request.load_current_request_csv('app/static/testcases/test_case1')
+
 
 class Course(db.Model, MyMixin):
     user_id = db.Column(Integer)
@@ -72,6 +76,22 @@ class Course(db.Model, MyMixin):
         reader = csv.reader(f, delimiter=',')
         for row in reader:
             yield {'id': row[0], 'name': row[1], 'cost': row[2]}
+
+    def count_requests(self):
+        return db.engine.execute("""select count(*) from
+                                  course left join request
+                                  on course.id = request.course_id
+                                  where course.user_id = {}
+                                  and course.id = {}
+                                  group by course.id""".format(current_user.id, self.id)).scalar()
+
+    @classmethod
+    def count_requests_for_all_courses(cls):
+        return db.engine.execute("""select course.id, count(*) as num_requests from
+                                  course left join request
+                                  on course.id = request.course_id
+                                  where course.user_id = {}
+                                  group by course.id""".format(current_user.id))
 
 
 class Prereq(db.Model, MyMixin):
@@ -196,6 +216,8 @@ class Request(db.Model, MyMixin):
 
     @classmethod
     def load_current_request_csv(cls, csv_folder):
+        # clear old requests
+        db.engine.execute('delete from request where user_id = {}'.format(current_user.id))
         filename = 'requests' + str(current_user.current_term) + '.csv'
         path = os.path.join(csv_folder, filename)
         cls.load_csv(path)

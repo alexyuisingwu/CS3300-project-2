@@ -5,10 +5,11 @@ from app import app, db
 from app.forms import RegistrationForm, LoginForm
 from app.utils.database_utils import import_csv_by_file, import_csvs_by_filepath
 from app.utils.utils import is_safe_url
-from app.models import Account
+from app.models import Account, Course, Instructor
 from os import environ
 
 
+# TODO: implement logout in UI
 @app.route('/')
 def index():
     if current_user.is_anonymous:
@@ -79,10 +80,8 @@ def upload_csvs():
 def assign_instructors():
     user_id = current_user.id
     if request.method == 'GET':
-        query = text('select * from course where user_id = :user_id')
-        courses = db.engine.execute(query.execution_options(autocommit=True), user_id=user_id).fetchall()
-        query = text('select * from instructor where user_id = :user_id')
-        instructors = db.engine.execute(query.execution_options(autocommit=True), user_id=user_id).fetchall()
+        courses = Course.query.filter_by(user_id=user_id)
+        instructors = Instructor.query.filter_by(user_id=user_id)
 
         return render_template('assign-instructors.html', courses=courses, instructors=instructors)
     else:
@@ -93,4 +92,22 @@ def assign_instructors():
                     'update instructor set course_id = :course_id where user_id = :user_id and name = :instructor_name')
                 db.engine.execute(query.execution_options(autocommit=True), course_id=int(course_id), user_id=user_id,
                                   instructor_name=instructor_name)
-        pass
+        # NOTE: testing term increment
+        current_user.increment_term()
+        return redirect(url_for('assign_instructors_after_requests'))
+
+
+@app.route('/assign-instructors-after-requests', methods=['GET', 'POST'])
+@login_required
+def assign_instructors_after_requests():
+    user_id = current_user.id
+    if request.method == 'GET':
+        query = text("""select course.id, course.name, course.cost, count(*) as num_requests from
+                        course left join request
+                        on course.id = request.course_id
+                        where course.user_id = :user_id
+                        group by course.id""")
+        courses = db.engine.execute(query.execution_options(autocommit=True), user_id=user_id).fetchall()
+        instructors = Instructor.query.filter_by(user_id=user_id)
+
+        return render_template('assign-instructors.html', courses=courses, instructors=instructors)
