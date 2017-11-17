@@ -39,7 +39,11 @@
         </thead>
         <tbody>
         {% for course in courses %}
-        <tr>
+        <tr {% if course.instructor is none and course.num_requests > 0%}
+            class="alert alert-danger"
+            {% else %}
+            class="alert alert-success"
+            {% endif %}>
             <td>{{ course.id }}</td>
             <td>{{ course.name }}</td>
             <td>${{ course.cost }}</td>
