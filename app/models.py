@@ -1,10 +1,11 @@
-from app import db, bcrypt
-from sqlalchemy.types import *
-from sqlalchemy import ForeignKey, UniqueConstraint, ForeignKeyConstraint, PrimaryKeyConstraint, text, Index
 import csv
-import os
 from os import environ
+
 from flask_login import UserMixin, current_user
+from sqlalchemy import UniqueConstraint, ForeignKeyConstraint, PrimaryKeyConstraint, text, Index
+from sqlalchemy.types import *
+
+from app import db, bcrypt
 
 
 # TODO: find out if simulation allows for uploading csvs/data. Otherwise, some tables can have user_id removed (like course)
@@ -59,7 +60,6 @@ class Account(db.Model, UserMixin):
 
     def increment_term(self):
         db.engine.execute('update account set current_term = current_term + 1 where id = {}'.format(self.id))
-        Request.load_current_request_csv('app/static/testcases/test_case1')
 
 
 class Course(db.Model, MyMixin):
@@ -204,20 +204,20 @@ class Request(db.Model, MyMixin):
     user_id = db.Column(Integer)
     student_id = db.Column(Integer, nullable=False)
     course_id = db.Column(Integer, nullable=False)
-    PrimaryKeyConstraint(user_id, student_id, course_id)
+    term = db.Column(Integer, nullable=False)
+    # each student in simulation can only request each course once per term
+    PrimaryKeyConstraint(user_id, student_id, course_id, term)
     ForeignKeyConstraint([user_id, student_id], [Student.user_id, Student.id], deferrable=True)
     ForeignKeyConstraint([user_id, course_id], [Course.user_id, Course.id], deferrable=True)
+    Index('request_user_id_term_idx', user_id, term, unique=False)
 
     @classmethod
     def parse_csv_by_file(cls, f):
         reader = csv.reader(f, delimiter=',')
         for row in reader:
-            yield {'student_id': row[0], 'course_id': row[1]}
+            yield {'student_id': row[0], 'course_id': row[1], 'term': f.name.split('/')[-1][8:-4]}
 
     @classmethod
-    def load_current_request_csv(cls, csv_folder):
-        # clear old requests
-        db.engine.execute('delete from request where user_id = {}'.format(current_user.id))
-        filename = 'requests' + str(current_user.current_term) + '.csv'
-        path = os.path.join(csv_folder, filename)
-        cls.load_csv(path)
+    def get_current_requests(cls):
+        return db.engine.execute('select * from request where user_id = {} and term = {}'
+                                 .format(current_user.id, current_user.current_term)).fetchall()

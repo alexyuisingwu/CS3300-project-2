@@ -32,7 +32,7 @@
             <th>Name</th>
             <th>Cost</th>
             <th>Instructor</th>
-            {% if courses[0].num_requests %}
+            {% if courses[0].num_requests is defined %}
                 <th>Number of Requests</th>
             {% endif %}
         </tr>
@@ -56,7 +56,7 @@
                     {% endfor %}
                 </select>
             </td>
-            {% if course.num_requests %}
+            {% if course.num_requests is defined %}
                 <td>
                     {{course.num_requests}}
                 </td>

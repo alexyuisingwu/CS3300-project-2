@@ -10,19 +10,22 @@ file_name_switcher = {
     'prereqs.csv': Prereq,
     'programs.csv': Program,
     'records.csv': AcademicRecord,
-    'requests.csv': Request,
     'students.csv': Student
 }
 
 
-def validate_csv(filename, exclusions=None):
-    return filename in file_name_switcher and (exclusions is None or filename not in exclusions)
+def get_load_function(filename, exclusions=None):
+    if filename[:8] == 'requests':
+        return Request
+    elif filename in file_name_switcher and (exclusions is None or filename not in exclusions):
+        return file_name_switcher[filename]
+    return None
 
 
 def import_csv_by_file(file, connection=None):
     if file.filename in file_name_switcher:
         # load files into database after conversion from binary files to text-mode files
-        file_name_switcher[file.filename].load_csv_by_file(StringIO(file.read().decode(), newline=None), connection)
+        get_load_function(file.filename).load_csv_by_file(StringIO(file.read().decode(), newline=None), connection)
 
 
 def import_csvs_by_filepath(rootdir='app/static/testcases/test_case1', exclusions=None):
@@ -30,11 +33,12 @@ def import_csvs_by_filepath(rootdir='app/static/testcases/test_case1', exclusion
     with db.engine.begin() as connection:
         if environ.get('IS_HEROKU'):
             connection.execute("SET CONSTRAINTS ALL DEFERRED")
-        for subdir, dirs, files in os.walk(rootdir):
-            for file in files:
-                path = os.path.join(subdir, file)
-                if validate_csv(file, exclusions=exclusions):
-                    file_name_switcher[file].load_csv(path, connection)
+        for subdir, dirs, filenames in os.walk(rootdir):
+            for filename in filenames:
+                path = os.path.join(subdir, filename)
+                func = get_load_function(filename, exclusions=exclusions)
+                if func:
+                    func.load_csv(path, connection)
 
 
 def clear_db():

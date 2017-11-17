@@ -9,7 +9,6 @@ from app.models import Account, Course, Instructor
 from os import environ
 
 
-# TODO: implement logout in UI
 @app.route('/')
 def index():
     if current_user.is_anonymous:
@@ -92,8 +91,6 @@ def assign_instructors():
                     'update instructor set course_id = :course_id where user_id = :user_id and name = :instructor_name')
                 db.engine.execute(query.execution_options(autocommit=True), course_id=int(course_id), user_id=user_id,
                                   instructor_name=instructor_name)
-        # NOTE: testing term increment
-        current_user.increment_term()
         return redirect(url_for('assign_instructors_after_requests'))
 
 
@@ -103,16 +100,16 @@ def assign_instructors_after_requests():
     user_id = current_user.id
     if request.method == 'GET':
         query = text("""select t1.id, name, cost, num_requests from
-                        (select course.id, count(*) as num_requests from
+                        (select course.id, count(request.user_id) as num_requests from
                                     course left join request
                                     on course.id = request.course_id
                                     and course.user_id = request.user_id
-                                    and course.user_id = :user_id
+                                    and request.term = :term
+                                    where course.user_id = :user_id
                                     group by course.id) as t1
-                        inner join course 
-                        on t1.id = course.id
-                        where course.user_id = :user_id;""")
-        courses = db.engine.execute(query.execution_options(autocommit=True), user_id=user_id).fetchall()
+                        inner join course
+                        on t1.id = course.id;""")
+        courses = db.engine.execute(query.execution_options(autocommit=True), user_id=user_id, term=current_user.current_term).fetchall()
         instructors = Instructor.query.filter_by(user_id=user_id)
 
         return render_template('assign-instructors.html', courses=courses, instructors=instructors)
