@@ -78,8 +78,8 @@ def upload_csvs():
 def assign_instructors():
     user_id = current_user.id
     if request.method == 'GET':
-        courses = Course.query.filter_by(user_id=user_id)
-        instructors = Instructor.query.filter_by(user_id=user_id)
+        courses = Course.query.filter_by(user_id=user_id).order_by(Course.id)
+        instructors = Instructor.query.filter_by(user_id=user_id).order_by(Instructor.name)
 
         return render_template('assign-instructors.html', courses=courses, instructors=instructors)
     else:
@@ -114,10 +114,11 @@ def assign_instructors_after_requests():
                         and t1.id = course.id
                         left join instructor
                         on instructor.user_id = :user_id
-                        and course.id = instructor.course_id;""")
+                        and course.id = instructor.course_id
+                        order by t1.id;""")
         courses = db.engine.execute(query.execution_options(autocommit=True), user_id=user_id,
                                     term=current_user.current_term).fetchall()
-        instructors = Instructor.query.filter_by(user_id=user_id)
+        instructors = Instructor.query.filter_by(user_id=user_id).order_by(Instructor.name)
 
         return render_template('assign-instructors-after-requests.html', courses=courses, instructors=instructors)
     if request.method == 'POST':
