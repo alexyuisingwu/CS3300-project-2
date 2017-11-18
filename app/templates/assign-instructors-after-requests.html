@@ -47,13 +47,16 @@
         </thead>
         <tbody>
         {% for course in courses %}
-        <tr {% if course.num_requests> 0 %}
-            {% if course.instructor is none %}
-            class="alert alert-warning"
-            {% else %}
-            class="alert alert-success"
+        <tr {% if course.num_requests > 0 %}
+                {% if course.instructor is none %}
+                class="alert alert-danger"
+                {% else %}
+                class="alert alert-success"
+                {% endif %}
+            {% elif course.instructor is not none %}
+                class="alert alert-warning"
             {% endif %}
-            {% endif %}>
+        >
             <td>{{ course.id }}</td>
             <td>{{ course.name }}</td>
             <td>${{ course.cost }}</td>
