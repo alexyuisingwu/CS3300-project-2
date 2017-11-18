@@ -5,7 +5,7 @@ from sqlalchemy import text
 from app import app, db
 from app.forms import RegistrationForm, LoginForm
 from app.models import Account, Course, Instructor
-from app.utils.database_utils import import_csv_by_file, import_csvs_by_filepath, defer_constraints
+from app.utils.database_utils import import_csv_by_file, import_csvs_by_filepath
 from app.utils.utils import is_safe_url
 
 
@@ -65,7 +65,6 @@ def logout():
 def upload_csvs():
     files = request.files.values()
     with db.engine.begin() as connection:
-        defer_constraints(connection)
 
         for file in files:
             import_csv_by_file(file, connection)
@@ -73,6 +72,7 @@ def upload_csvs():
     return json.dumps({'success': True}), 200, {'ContentType': 'application/json'}
 
 
+# TODO: consider error message if any instructors unassigned
 @app.route('/assign-instructors', methods=['GET', 'POST'])
 @login_required
 def assign_instructors():
@@ -124,7 +124,6 @@ def assign_instructors_after_requests():
     if request.method == 'POST':
         # transaction used as update statements out of order can cause duplicate key error if instructors swapped
         with db.engine.begin() as connection:
-            defer_constraints(connection)
             for course_id, instructor_name in request.form.items():
                 if course_id != 'csrf_token' and instructor_name != '':
                     # clear old instructor assignment
@@ -139,5 +138,24 @@ def assign_instructors_after_requests():
                     connection.execute(query,
                                        course_id=int(course_id), user_id=user_id, instructor_name=instructor_name)
                     # TODO: request validation
-        current_user.increment_term()
-        return redirect(url_for('assign_instructors'))
+        # current_user.increment_term()
+        return redirect(url_for('rejected_requests'))
+
+
+@app.route('/rejected-requests')
+@login_required
+def rejected_requests():
+    # not imported at top to avoid confusion with flask Request
+    from app.models import Request
+    # requests = Request.query.filter_by(user_id=current_user.id, term=current_user.current_term).fetchall()
+    # TODO: fix (less instructors than courses means that you have to join with courses to get unavailable courses)
+    # NOTE: query currently gets all courses with no instructors (consider using temp table with courses for term+user)
+    query = text("""select * from course
+                    left join instructor on
+                    course.id = instructor.course_id
+                    where instructor.course_id is NULL
+                    and instructor.user_id = :user_id
+                    and course.user_id = :user_id""")
+    requests = db.engine.execute(query, user_id=current_user.id)
+
+    return render_template('rejected-requests.html')

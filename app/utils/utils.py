@@ -1,7 +1,10 @@
-from urllib.parse import urlparse, urljoin
-from flask import request
-from app import app
 from math import ceil
+from numpy import random
+from urllib.parse import urlparse, urljoin
+
+from flask import request
+
+from app import app
 
 
 def is_safe_url(target):
@@ -9,6 +12,13 @@ def is_safe_url(target):
     test_url = urlparse(urljoin(request.host_url, target))
     return test_url.scheme in ('http', 'https') and \
            ref_url.netloc == test_url.netloc
+
+
+def get_random_grade():
+    grades = ['A', 'B', 'C', 'D', 'F']
+    weights = (0.35, 0.45, 0.1, 0.05, 0.05)
+
+    return random.choice(grades, p=weights)
 
 
 @app.context_processor

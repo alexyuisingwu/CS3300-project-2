@@ -30,8 +30,6 @@ class MyMixin(object):
         if connection is None:
             db.engine.execute(cls.__table__.insert(), rows, autocommit=True)
         else:
-            if not environ.get('IS_HEROKU'):
-                connection.execute('PRAGMA defer_foreign_keys=ON')
             connection.execute(cls.__table__.insert(), rows, autocommit=False)
 
     @classmethod
@@ -99,8 +97,8 @@ class Prereq(db.Model, MyMixin):
     user_id = db.Column(Integer)
     course_id = db.Column(Integer, nullable=False)
     prereq_id = db.Column(Integer, nullable=False)
-    ForeignKeyConstraint([user_id, course_id], [Course.user_id, Course.id], deferrable=True)
-    ForeignKeyConstraint([user_id, prereq_id], [Course.user_id, Course.id], deferrable=True)
+    ForeignKeyConstraint([user_id, course_id], [Course.user_id, Course.id], deferrable=True, initially="DEFERRED")
+    ForeignKeyConstraint([user_id, prereq_id], [Course.user_id, Course.id], deferrable=True, initially="DEFERRED")
 
     PrimaryKeyConstraint(user_id, course_id, prereq_id)
 
@@ -121,7 +119,7 @@ class Instructor(db.Model, MyMixin):
 
     PrimaryKeyConstraint(user_id, id)
     UniqueConstraint(user_id, course_id)
-    ForeignKeyConstraint([user_id, course_id], [Course.user_id, Course.id], deferrable=True)
+    ForeignKeyConstraint([user_id, course_id], [Course.user_id, Course.id], deferrable=True, initially="DEFERRED")
 
     Index('instructor_user_id_name_idx', user_id, name)
 
@@ -157,7 +155,7 @@ class Student(db.Model, MyMixin):
     program_id = db.Column(Integer, nullable=True)
     PrimaryKeyConstraint(user_id, id)
     UniqueConstraint(user_id, phone)
-    ForeignKeyConstraint([user_id, program_id], [Program.user_id, Program.id], deferrable=True)
+    ForeignKeyConstraint([user_id, program_id], [Program.user_id, Program.id], deferrable=True, initially="DEFERRED")
     Index('student_user_id_name_idx', user_id, name)
 
     @classmethod
@@ -179,8 +177,8 @@ class AcademicRecord(db.Model, MyMixin):
     # TODO: consider converting to enum (1, 2, 3, 4) for (Winter, Spring, Summer, Fall)
     term = db.Column(SmallInteger, nullable=False)
     PrimaryKeyConstraint(user_id, student_id, course_id, year, term)
-    ForeignKeyConstraint([user_id, student_id], [Student.user_id, Student.id], deferrable=True)
-    ForeignKeyConstraint([user_id, course_id], [Course.user_id, Course.id], deferrable=True)
+    ForeignKeyConstraint([user_id, student_id], [Student.user_id, Student.id], deferrable=True, initially="DEFERRED")
+    ForeignKeyConstraint([user_id, course_id], [Course.user_id, Course.id], deferrable=True, initially="DEFERRED")
 
     @classmethod
     def parse_csv_by_file(cls, f):
@@ -194,7 +192,7 @@ class Listing(db.Model, MyMixin):
     program_id = db.Column(Integer, nullable=False)
     course_id = db.Column(Integer, nullable=False)
     PrimaryKeyConstraint(user_id, program_id, course_id)
-    ForeignKeyConstraint([user_id, program_id], [Program.user_id, Program.id], deferrable=True)
+    ForeignKeyConstraint([user_id, program_id], [Program.user_id, Program.id], deferrable=True, initially="DEFERRED")
 
     @classmethod
     def parse_csv_by_file(cls, f):
@@ -210,8 +208,8 @@ class Request(db.Model, MyMixin):
     term = db.Column(Integer, nullable=False)
     # each student in simulation can only request each course once per term
     PrimaryKeyConstraint(user_id, student_id, course_id, term)
-    ForeignKeyConstraint([user_id, student_id], [Student.user_id, Student.id], deferrable=True)
-    ForeignKeyConstraint([user_id, course_id], [Course.user_id, Course.id], deferrable=True)
+    ForeignKeyConstraint([user_id, student_id], [Student.user_id, Student.id], deferrable=True, initially="DEFERRED")
+    ForeignKeyConstraint([user_id, course_id], [Course.user_id, Course.id], deferrable=True, initially="DEFERRED")
     Index('request_user_id_term_idx', user_id, term, unique=False)
 
     @classmethod

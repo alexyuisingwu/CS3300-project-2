@@ -1,7 +1,8 @@
 import os
-from app.models import *
-from app import db
 from io import StringIO
+
+from app import db
+from app.models import *
 
 file_name_switcher = {
     'courses.csv': Course,
@@ -31,8 +32,6 @@ def import_csv_by_file(file, connection=None):
 def import_csvs_by_filepath(rootdir='app/static/testcases/test_case1', exclusions=None):
     # TODO: handle requestsx.csv, where x is the sequence number of the request file
     with db.engine.begin() as connection:
-        if environ.get('IS_HEROKU'):
-            connection.execute("SET CONSTRAINTS ALL DEFERRED")
         for subdir, dirs, filenames in os.walk(rootdir):
             for filename in filenames:
                 path = os.path.join(subdir, filename)
@@ -45,6 +44,8 @@ def clear_db():
     db.drop_all()
     db.create_all()
 
+
+# use on deferrable initially immediate constraints to defer constraint
 def defer_constraints(connection):
     if environ.get('IS_HEROKU'):
         connection.execute("SET CONSTRAINTS ALL DEFERRED")
