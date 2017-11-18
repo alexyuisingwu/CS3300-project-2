@@ -60,6 +60,7 @@ class Account(db.Model, UserMixin):
 
     def increment_term(self):
         db.engine.execute('update account set current_term = current_term + 1 where id = {}'.format(self.id))
+        db.engine.execute('update instructor set course_id = NULL')
 
 
 class Course(db.Model, MyMixin):

@@ -137,3 +137,6 @@ def assign_instructors_after_requests():
                         'update instructor set course_id = :course_id where user_id = :user_id and name = :instructor_name')
                     connection.execute(query,
                                        course_id=int(course_id), user_id=user_id, instructor_name=instructor_name)
+                    # TODO: request validation
+        current_user.increment_term()
+        return redirect(url_for('assign_instructors'))
