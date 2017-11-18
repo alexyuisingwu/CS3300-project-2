@@ -1,5 +1,4 @@
 import csv
-from os import environ
 
 from flask_login import UserMixin, current_user
 from sqlalchemy import UniqueConstraint, ForeignKeyConstraint, PrimaryKeyConstraint, text, Index
@@ -57,8 +56,9 @@ class Account(db.Model, UserMixin):
         return bcrypt.check_password_hash(self.passhash, password)
 
     def increment_term(self):
-        db.engine.execute('update account set current_term = current_term + 1 where id = {}'.format(self.id))
-        db.engine.execute('update instructor set course_id = NULL')
+        with db.engine.begin() as connection:
+            connection.execute('update account set current_term = current_term + 1 where id = {}'.format(self.id))
+            connection.execute('update instructor set course_id = NULL')
 
 
 class Course(db.Model, MyMixin):

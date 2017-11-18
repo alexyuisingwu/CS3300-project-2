@@ -4,9 +4,9 @@ from sqlalchemy import text
 
 from app import app, db
 from app.forms import RegistrationForm, LoginForm
-from app.models import Account, Course, Instructor
+from app.models import Account, Course, Instructor, AcademicRecord
 from app.utils.database_utils import import_csv_by_file, import_csvs_by_filepath
-from app.utils.utils import is_safe_url
+from app.utils.utils import is_safe_url, get_random_grade, get_term_year
 
 
 @app.route('/')
@@ -65,7 +65,6 @@ def logout():
 def upload_csvs():
     files = request.files.values()
     with db.engine.begin() as connection:
-
         for file in files:
             import_csv_by_file(file, connection)
 
@@ -146,22 +145,48 @@ def assign_instructors_after_requests():
 def rejected_requests():
     # TODO: prereq validation
     if request.method == 'GET':
-        query = text("""select request.course_id, t1.course_name, student.name as student_name, request.student_id from
-                        (select id as course_id, name as course_name from course
-                        where not exists
-                        (select 1 from instructor
-                        where instructor.user_id = :user_id
-                        and instructor.course_id = course.id)
-                        and user_id = :user_id
-                        ) as t1
-                        inner join request
-                        on request.user_id = :user_id
-                        and t1.course_id = request.course_id
-                        and request.term = :term
-                        inner join student
-                        on student.user_id = :user_id
-                        and student.id = request.student_id;""")
-        no_instructor_requests = db.engine.execute(query, user_id=current_user.id, term=current_user.current_term).fetchall()
+        with db.engine.begin() as connection:
+            query = text("""create temp table Course_Helper as 
+                            select course.id, course.name, instructor.id as instructor_id
+                            from course left join instructor
+                            on course.user_id = instructor.user_id
+                            and course.id = instructor.course_id
+                            where course.user_id = :user_id;""")
+            connection.execute(query, user_id=current_user.id)
+            query = text("""select student_id, available_course.id as course_id from 
+                            (select id from Course_Helper where instructor_id is not NULL) as available_course
+                            inner join Request on
+                            Request.user_id = :user_id
+                            and available_course.id = Request.course_id
+                            and term = :term;
+                        """)
+            valid_requests = connection.execute(query, user_id=current_user.id,
+                                                term=current_user.current_term).fetchall()
+
+            records = []
+            current_year = get_term_year(current_user.current_term)
+
+            # insert records for all valid requests
+            for row in valid_requests:
+                record = {'user_id': current_user.id, 'student_id': row.student_id, 'course_id': row.course_id,
+                          'grade': get_random_grade(), 'year': current_year, 'term': current_user.current_term}
+                records.append(record)
+            if records:
+                connection.execute(AcademicRecord.__table__.insert(), records)
+
+            query = text("""select request.course_id, t1.course_name, student.name as student_name, request.student_id from
+                                    (select id as course_id, name as course_name from
+                                    Course_Helper where instructor_id is NULL
+                                    ) as t1
+                                    inner join request
+                                    on request.user_id = :user_id
+                                    and t1.course_id = request.course_id
+                                    and request.term = :term
+                                    inner join student
+                                    on student.user_id = :user_id
+                                    and student.id = request.student_id;""")
+            no_instructor_requests = connection.execute(query, user_id=current_user.id,
+                                                        term=current_user.current_term).fetchall()
 
         return render_template('rejected-requests.html', no_instructor_requests=no_instructor_requests)
     else:

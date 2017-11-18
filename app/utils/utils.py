@@ -1,10 +1,12 @@
 from math import ceil
-from numpy import random
 from urllib.parse import urlparse, urljoin
 
 from flask import request
+from numpy import random
 
 from app import app
+
+start_year = 2017
 
 
 def is_safe_url(target):
@@ -14,27 +16,29 @@ def is_safe_url(target):
            ref_url.netloc == test_url.netloc
 
 
-def get_random_grade():
+def get_random_grade(size=1):
     grades = ['A', 'B', 'C', 'D', 'F']
     weights = (0.35, 0.45, 0.1, 0.05, 0.05)
 
-    return random.choice(grades, p=weights)
+    return random.choice(grades, size=size, p=weights)
+
+
+def get_term_name(term_num):
+    season = get_term_season(term_num)
+    year = get_term_year(term_num)
+    return season + ' ' + str(year)
+
+
+def get_term_year(term_num):
+    year_offset = ceil(term_num / 4.)
+    return start_year + year_offset
+
+
+def get_term_season(term_num):
+    terms = ('Fall', 'Winter', 'Spring', 'Summer')
+    return terms[term_num % 4]
 
 
 @app.context_processor
 def utility_processor():
-    def get_term_name(term_num):
-        term_dict = {
-            0: 'Fall',
-            1: 'Winter',
-            2: 'Spring',
-            3: 'Summer'
-        }
-        term_num = int(term_num)
-        year_offset = ceil(term_num / 4.)
-        season_num = term_num % 4
-        season = term_dict[season_num]
-        year = 2017 + year_offset
-        return season + ' ' + str(year)
-
     return dict(get_term_name=get_term_name)
