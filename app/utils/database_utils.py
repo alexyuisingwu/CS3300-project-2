@@ -44,3 +44,9 @@ def import_csvs_by_filepath(rootdir='app/static/testcases/test_case1', exclusion
 def clear_db():
     db.drop_all()
     db.create_all()
+
+def defer_constraints(connection):
+    if environ.get('IS_HEROKU'):
+        connection.execute("SET CONSTRAINTS ALL DEFERRED")
+    else:
+        connection.execute('PRAGMA defer_foreign_keys=ON')

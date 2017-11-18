@@ -15,6 +15,8 @@
             crossorigin="anonymous"></script>
     <script defer src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-select/1.12.4/js/bootstrap-select.js"></script>
     <script defer src="{{url_for('static', filename='js/assign-instructors.js')}}"></script>
+    <script defer src="{{url_for('static', filename='js/assign-instructors-after-requests.js')}}"></script>
+
 
 </head>
 <body>
@@ -23,7 +25,13 @@
 <h1>{{get_term_name(current_user.current_term)}}</h1>
 <h3>Assign Courses</h3>
 
-<form id="assign-instructors" action="/assign-instructors" method="POST">
+<p>
+    Now that you've seen the demand for each course, you can reassign at most 1 instructor.
+</p>
+<div id="errors" class="alert alert-danger" role="alert" hidden>
+    <strong>Error!</strong> You have made more than 1 change to instructor assignment.
+</div>
+<form id="assign-instructors" action="/assign-instructors-after-requests" method="POST">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/> <br>
     <table class="table table-striped">
         <thead>
@@ -33,16 +41,18 @@
             <th>Cost</th>
             <th>Instructor</th>
             {% if courses[0].num_requests is defined %}
-                <th>Number of Requests</th>
+            <th>Number of Requests</th>
             {% endif %}
         </tr>
         </thead>
         <tbody>
         {% for course in courses %}
-        <tr {% if course.instructor is none and course.num_requests > 0%}
-            class="alert alert-danger"
+        <tr {% if course.num_requests> 0 %}
+            {% if course.instructor is none %}
+            class="alert alert-warning"
             {% else %}
             class="alert alert-success"
+            {% endif %}
             {% endif %}>
             <td>{{ course.id }}</td>
             <td>{{ course.name }}</td>
@@ -52,17 +62,17 @@
                     <option id="-1"></option>
                     {% for instructor in instructors %}
                     {% if instructor.course_id == course.id %}
-                        <option selected="selected" name="instructor_option">{{instructor.name}}</option>
+                    <option selected="selected" name="instructor_option">{{instructor.name}}</option>
                     {% else %}
-                        <option name="instructor_option">{{instructor.name}}</option>
+                    <option name="instructor_option">{{instructor.name}}</option>
                     {% endif %}
                     {% endfor %}
                 </select>
             </td>
             {% if course.num_requests is defined %}
-                <td>
-                    {{course.num_requests}}
-                </td>
+            <td>
+                {{course.num_requests}}
+            </td>
             {% endif %}
         </tr>
         {% endfor %}

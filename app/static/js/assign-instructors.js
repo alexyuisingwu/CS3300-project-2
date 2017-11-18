@@ -1,7 +1,7 @@
 
 
 (() => {
-    var selects = $('.selectpicker');
+    var selects = $('select');
     var selected;
     function refreshSelects() {
         selected = [];

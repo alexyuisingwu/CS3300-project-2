@@ -116,10 +116,12 @@ class Instructor(db.Model, MyMixin):
     name = db.Column(String(255), nullable=False)
     office_hours = db.Column(String(255), nullable=False)
     email = db.Column(String(255), nullable=False)
-    # NOTE: can't be unique as = 0 when instructor not teaching course
     course_id = db.Column(Integer, nullable=True)
+
     PrimaryKeyConstraint(user_id, id)
+    UniqueConstraint(user_id, course_id)
     ForeignKeyConstraint([user_id, course_id], [Course.user_id, Course.id], deferrable=True)
+
     Index('instructor_user_id_name_idx', user_id, name)
 
     @classmethod
