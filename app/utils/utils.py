@@ -16,7 +16,7 @@ def is_safe_url(target):
            ref_url.netloc == test_url.netloc
 
 
-def get_random_grade(size=1):
+def get_random_grade(size=None):
     grades = ['A', 'B', 'C', 'D', 'F']
     weights = (0.35, 0.45, 0.1, 0.05, 0.05)
 

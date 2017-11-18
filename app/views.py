@@ -161,7 +161,7 @@ def rejected_requests():
                             and term = :term;
                         """)
             valid_requests = connection.execute(query, user_id=current_user.id,
-                                                term=current_user.current_term).fetchall()
+                                                term=current_user.current_term)
 
             records = []
             current_year = get_term_year(current_user.current_term)
