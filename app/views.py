@@ -97,7 +97,6 @@ def assign_instructors():
 def assign_instructors_after_requests():
     user_id = current_user.id
     # TODO: consider changing number of requests to number of valid requests (accounting for prereqs)
-    # TODO: allow reassignment to no instructor
     if request.method == 'GET':
         query = text("""select t1.id, course.name as name, cost, num_requests, instructor.name as instructor from
                         (select course.id, count(request.user_id) as num_requests from
@@ -123,20 +122,19 @@ def assign_instructors_after_requests():
         # transaction used as update statements out of order can cause duplicate key error if instructors swapped
         with db.engine.begin() as connection:
             for course_id, instructor_name in request.form.items():
-                if course_id != 'csrf_token' and instructor_name != '':
+                if course_id != 'csrf_token':
                     # clear old instructor assignment
                     query = text(
                         'update instructor set course_id = NULL where user_id = :user_id and course_id = :course_id')
                     connection.execute(query,
                                        course_id=int(course_id), user_id=user_id)
-
-                    # update assignment
-                    query = text(
-                        'update instructor set course_id = :course_id where user_id = :user_id and name = :instructor_name')
-                    connection.execute(query,
-                                       course_id=int(course_id), user_id=user_id, instructor_name=instructor_name)
-                    # TODO: request validation
-        # current_user.increment_term()
+                    if instructor_name != '':
+                        # update assignment
+                        query = text(
+                            'update instructor set course_id = :course_id where user_id = :user_id and name = :instructor_name')
+                        connection.execute(query,
+                                           course_id=int(course_id), user_id=user_id, instructor_name=instructor_name)
+                        # TODO: request validation
         return redirect(url_for('rejected_requests'))
 
 
