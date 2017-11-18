@@ -16,6 +16,44 @@
     <script defer src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-select/1.12.4/js/bootstrap-select.js"></script>
 </head>
 <body>
+{% include "partials/navigation-bar.html" %}
 
+<h1>{{get_term_name(current_user.current_term)}}</h1>
+
+{% if no_instructor_requests|length > 0 %}
+<h3>Rejected Requests</h3>
+
+<table id="rejected-requests" class="table table-striped">
+    <thead>
+    <tr>
+        <th>Course ID</th>
+        <th>Course Name</th>
+        <th>Student ID</th>
+        <th>Student Name</th>
+        <th>Reason for Rejection</th>
+    </tr>
+    </thead>
+    <tbody>
+    {% for request in no_instructor_requests %}
+    <tr>
+        <td>{{ request.course_id }}</td>
+        <td>{{ request.course_name }}</td>
+        <td>{{ request.student_id }}</td>
+        <td>{{ request.student_name }}</td>
+        <td>No instructor assigned</td>
+    </tr>
+    {% endfor %}
+
+    </tbody>
+</table>
+{% else %}
+<div class="alert alert-success">
+  <strong>Congratulations!</strong> All requests have been fulfilled!
+</div>
+{% endif %}
+<form action="/rejected-requests" method="POST">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/> <br>
+    <button type="submit" id="next-term-button"> Move on to Next Term </button>
+</form>
 </body>
 </html>

@@ -99,7 +99,6 @@ def assign_instructors_after_requests():
     user_id = current_user.id
     # TODO: consider changing number of requests to number of valid requests (accounting for prereqs)
     # TODO: allow reassignment to no instructor
-    # TODO: find out why some sources duplicated
     if request.method == 'GET':
         query = text("""select t1.id, course.name as name, cost, num_requests, instructor.name as instructor from
                         (select course.id, count(request.user_id) as num_requests from
@@ -142,20 +141,29 @@ def assign_instructors_after_requests():
         return redirect(url_for('rejected_requests'))
 
 
-@app.route('/rejected-requests')
+@app.route('/rejected-requests', methods=['GET', 'POST'])
 @login_required
 def rejected_requests():
-    # not imported at top to avoid confusion with flask Request
-    from app.models import Request
-    # requests = Request.query.filter_by(user_id=current_user.id, term=current_user.current_term).fetchall()
-    # TODO: fix (less instructors than courses means that you have to join with courses to get unavailable courses)
-    # NOTE: query currently gets all courses with no instructors (consider using temp table with courses for term+user)
-    query = text("""select * from course
-                    left join instructor on
-                    course.id = instructor.course_id
-                    where instructor.course_id is NULL
-                    and instructor.user_id = :user_id
-                    and course.user_id = :user_id""")
-    requests = db.engine.execute(query, user_id=current_user.id)
+    # TODO: prereq validation
+    if request.method == 'GET':
+        query = text("""select request.course_id, t1.course_name, student.name as student_name, request.student_id from
+                        (select id as course_id, name as course_name from course
+                        where not exists
+                        (select 1 from instructor
+                        where instructor.user_id = :user_id
+                        and instructor.course_id = course.id)
+                        and user_id = :user_id
+                        ) as t1
+                        inner join request
+                        on request.user_id = :user_id
+                        and t1.course_id = request.course_id
+                        and request.term = :term
+                        inner join student
+                        on student.user_id = :user_id
+                        and student.id = request.student_id;""")
+        no_instructor_requests = db.engine.execute(query, user_id=current_user.id, term=current_user.current_term).fetchall()
 
-    return render_template('rejected-requests.html')
+        return render_template('rejected-requests.html', no_instructor_requests=no_instructor_requests)
+    else:
+        current_user.increment_term()
+        return redirect(url_for('assign_instructors'))

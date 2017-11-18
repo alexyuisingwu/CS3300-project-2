@@ -30,7 +30,6 @@ def import_csv_by_file(file, connection=None):
 
 
 def import_csvs_by_filepath(rootdir='app/static/testcases/test_case1', exclusions=None):
-    # TODO: handle requestsx.csv, where x is the sequence number of the request file
     with db.engine.begin() as connection:
         for subdir, dirs, filenames in os.walk(rootdir):
             for filename in filenames:

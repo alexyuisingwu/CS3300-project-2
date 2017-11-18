@@ -15,19 +15,7 @@ $(document).ready(function(){
             }
         });
 
-        var error = false;
-
-        if (changes.length > 2) {
-            error = true;
-        } else if (changes.length === 2) {
-            change1 = changes[0].find("select");
-            change2 = changes[1].find("select");
-
-            if (change1.val() !== change2.data("original") || change2.val() !== change1.data("original")) {
-                error = true;
-            }
-        }
-        if (error) {
+        if (changes.length > 1) {
             errorDiv.show();
             changes.forEach(e => {
                 $(e).attr("class", "alert alert-danger");
