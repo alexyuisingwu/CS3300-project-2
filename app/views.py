@@ -4,9 +4,9 @@ from sqlalchemy import text
 
 from app import app, db
 from app.forms import RegistrationForm, LoginForm
-from app.models import Account, Course, Instructor
+from app.models import Account, Course, Instructor, AcademicRecord
 from app.utils.database_utils import import_csv_by_file, import_csvs_by_filepath
-from app.utils.utils import is_safe_url
+from app.utils.utils import is_safe_url, get_random_grade, get_term_year
 
 
 @app.route('/')
@@ -230,6 +230,17 @@ def rejected_requests():
             """)
             valid_requests = connection.execute(query,
                                                 term=current_user.current_term, user_id=current_user.id).fetchall()
+
+            records = []
+            current_year = get_term_year(current_user.current_term)
+
+            # insert records for all valid requests
+            for row in valid_requests:
+                record = {'user_id': current_user.id, 'student_id': row.student_id, 'course_id': row.course_id,
+                          'grade': get_random_grade(), 'year': current_year, 'term': current_user.current_term}
+                records.append(record)
+            if records:
+                connection.execute(AcademicRecord.__table__.insert(), records)
 
             reject_dict = {}
 
