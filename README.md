@@ -8,3 +8,4 @@ Set up a python3 virtual environment (not shown). Then install the requirements 
 pip3 install -r requirements.txt
 python3 run.py
 ```
+Once the app is running, navigate to [http://0.0.0.0:5000](http://0.0.0.0:5000/) to begin use.
