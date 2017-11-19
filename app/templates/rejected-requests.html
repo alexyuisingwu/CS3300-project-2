@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Rejected Requests</title>
+    <title>Request Report</title>
     <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css"
           integrity="sha384-BVYiiSIFeK1dGmJRAkycuHAHRg32OmUcww7on3RYdg4Va+PmSTsz/K68vbdEjh4u" crossorigin="anonymous">
     <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap-theme.min.css"
@@ -18,9 +18,30 @@
 <body>
 {% include "partials/navigation-bar.html" %}
 
-<h1>{{get_term_name(current_user.current_term)}}</h1>
+<h1>{{get_term_name(current_user.current_term) ~ " Request Report"}}</h1>
 
-{% if no_instructor_requests|length > 0 %}
+<h3>Accepted Requests</h3>
+<table id="accepted-requests" class="table table-striped">
+    <thead>
+    <tr>
+        <th>Course ID</th>
+        <th>Course Name</th>
+        <th>Student ID</th>
+        <th>Student Name</th>
+    </tr>
+    </thead>
+    <tbody>
+    {% for row in valid_requests %}
+        <tr class="alert alert-success">
+            <td>{{ row.course_id }}</td>
+            <td>{{ row.course_name }}</td>
+            <td>{{ row.student_id }}</td>
+            <td>{{ row.student_name }}</td>
+        </tr>
+    {% endfor %}
+    </tbody>
+</table>
+
 <h3>Rejected Requests</h3>
 
 <table id="rejected-requests" class="table table-striped">
@@ -34,23 +55,32 @@
     </tr>
     </thead>
     <tbody>
-    {% for request in no_instructor_requests %}
-    <tr>
-        <td>{{ request.course_id }}</td>
-        <td>{{ request.course_name }}</td>
-        <td>{{ request.student_id }}</td>
-        <td>{{ request.student_name }}</td>
-        <td>No instructor assigned</td>
+    {% for (student_id, course_id), info in reject_dict.items() %}
+    <tr class="alert alert-danger">
+        <td>{{ course_id }}</td>
+        <td>{{ info.course_name }}</td>
+        <td>{{ student_id }}</td>
+        <td>{{ info.student_name }}</td>
+        <td>
+            <ul>
+                {% if info.no_instructor %}
+                <ol>No instructor</ol>
+                {% endif %}
+                {% if info.missing_prereqs is defined %}
+                <strong>Missing Prerequisites</strong>
+                    {% for prereq in info.missing_prereqs%}
+                        <ol>{{prereq.name}}</ol>
+                    {% endfor %}
+                {% endif %}
+
+            </ul>
+        </td>
     </tr>
     {% endfor %}
 
     </tbody>
 </table>
-{% else %}
-<div class="alert alert-success">
-  <strong>Congratulations!</strong> All requests have been fulfilled!
-</div>
-{% endif %}
+
 <form action="/rejected-requests" method="POST">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/> <br>
     <button type="submit" id="next-term-button"> Move on to Next Term </button>

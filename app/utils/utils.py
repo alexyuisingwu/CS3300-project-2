@@ -21,7 +21,7 @@ def get_random_grade(size=None):
     grades = ['A', 'B', 'C', 'D', 'F']
     weights = (0.35, 0.45, 0.1, 0.05, 0.05)
 
-    return random.choice(grades, size=size, p=weights)
+    return str(random.choice(grades, size=size, p=weights))
 
 
 def get_term_name(term_num):

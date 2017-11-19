@@ -4,9 +4,9 @@ from sqlalchemy import text
 
 from app import app, db
 from app.forms import RegistrationForm, LoginForm
-from app.models import Account, Course, Instructor, AcademicRecord
+from app.models import Account, Course, Instructor
 from app.utils.database_utils import import_csv_by_file, import_csvs_by_filepath
-from app.utils.utils import is_safe_url, get_random_grade, get_term_year
+from app.utils.utils import is_safe_url
 
 
 @app.route('/')
@@ -82,7 +82,6 @@ def assign_instructors():
 
         return render_template('assign-instructors.html', courses=courses, instructors=instructors)
     else:
-        # TODO: error messages for no assignment
         for course_id, instructor_name in request.form.items():
             if course_id != 'csrf_token' and instructor_name != '':
                 query = text(
@@ -134,59 +133,123 @@ def assign_instructors_after_requests():
                             'update instructor set course_id = :course_id where user_id = :user_id and name = :instructor_name')
                         connection.execute(query,
                                            course_id=int(course_id), user_id=user_id, instructor_name=instructor_name)
-                        # TODO: request validation
         return redirect(url_for('rejected_requests'))
 
 
+# TODO: display granted requests
 @app.route('/rejected-requests', methods=['GET', 'POST'])
 @login_required
 def rejected_requests():
     # TODO: prereq validation
+    # TODO: consider index on temp table
+    # TODO: move database modifications to POST request (either in calling function or after submit button pressed)
     if request.method == 'GET':
         with db.engine.begin() as connection:
-            query = text("""create temp table Course_Helper as 
-                            select course.id, course.name, instructor.id as instructor_id
-                            from course left join instructor
-                            on course.user_id = instructor.user_id
-                            and course.id = instructor.course_id
-                            where course.user_id = :user_id;""")
+            query = text("""CREATE temp TABLE course_helper AS 
+                              SELECT course.id, 
+                                     course.name, 
+                                     instructor.id AS instructor_id 
+                              FROM   course 
+                                     left join instructor 
+                                            ON course.user_id = instructor.user_id 
+                                               AND course.id = instructor.course_id 
+                              WHERE  course.user_id = :user_id; """)
             connection.execute(query, user_id=current_user.id)
-            query = text("""select student_id, available_course.id as course_id from 
-                            (select id from Course_Helper where instructor_id is not NULL) as available_course
-                            inner join Request on
-                            Request.user_id = :user_id
-                            and available_course.id = Request.course_id
-                            and term = :term;
-                        """)
-            valid_requests = connection.execute(query, user_id=current_user.id,
-                                                term=current_user.current_term)
 
-            records = []
-            current_year = get_term_year(current_user.current_term)
+            query = text("""CREATE temp TABLE request_missing_instructor AS 
+                            SELECT request.course_id, 
+                                   t1.course_name AS course_name,
+                                   student.name AS student_name, 
+                                   request.student_id 
+                            FROM   (SELECT id   AS course_id, 
+                                           name AS course_name 
+                                    FROM   course_helper 
+                                    WHERE  instructor_id IS NULL) AS t1 
+                                   INNER JOIN request 
+                                           ON request.user_id = :user_id 
+                                              AND t1.course_id = request.course_id 
+                                              AND request.term = :term 
+                                   INNER JOIN student 
+                                           ON student.user_id = :user_id 
+                                              AND student.id = request.student_id;""")
+            connection.execute(query, user_id=current_user.id, term=current_user.current_term)
 
-            # insert records for all valid requests
-            for row in valid_requests:
-                record = {'user_id': current_user.id, 'student_id': row.student_id, 'course_id': row.course_id,
-                          'grade': get_random_grade(), 'year': current_year, 'term': current_user.current_term}
-                records.append(record)
-            if records:
-                connection.execute(AcademicRecord.__table__.insert(), records)
+            no_instructor_requests = connection.execute('select * from request_missing_instructor').fetchall()
 
-            query = text("""select request.course_id, t1.course_name, student.name as student_name, request.student_id from
-                                    (select id as course_id, name as course_name from
-                                    Course_Helper where instructor_id is NULL
-                                    ) as t1
-                                    inner join request
-                                    on request.user_id = :user_id
-                                    and t1.course_id = request.course_id
-                                    and request.term = :term
-                                    inner join student
-                                    on student.user_id = :user_id
-                                    and student.id = request.student_id;""")
-            no_instructor_requests = connection.execute(query, user_id=current_user.id,
-                                                        term=current_user.current_term).fetchall()
+            # selects all requests with missing prereqs
+            # NOTE: a single course can appear multiple times as it can miss multiple prereqs
+            query = text("""CREATE TEMP TABLE request_missing_prereq AS
+                            SELECT request.student_id, 
+                                   student.name AS student_name, 
+                                   request.course_id, 
+                                   course1.name AS course_name, 
+                                   prereq.prereq_id, 
+                                   course2.name AS prereq_name 
+                            FROM   prereq 
+                                   INNER JOIN request 
+                                           ON request.user_id = prereq.user_id 
+                                              AND request.term = :term 
+                                              AND request.course_id = prereq.course_id 
+                                              AND request.user_id = :user_id 
+                                   INNER JOIN course AS course1 
+                                           ON course1.user_id = :user_id 
+                                              AND request.course_id = course1.id 
+                                   INNER JOIN course AS course2 
+                                           ON course2.user_id = :user_id 
+                                              AND prereq.prereq_id = course2.id 
+                                   INNER JOIN student 
+                                           ON student.user_id = :user_id 
+                                              AND request.student_id = student.id 
+                            WHERE  NOT EXISTS (SELECT * 
+                                               FROM   academic_record 
+                                               WHERE  user_id = :user_id 
+                                                      AND grade NOT IN ( 'D', 'F' ) 
+                                                      AND course_id = prereq_id);""")
+            connection.execute(query, user_id=current_user.id, term=current_user.current_term)
+            missing_prereqs = connection.execute('select * from request_missing_prereq')
 
-        return render_template('rejected-requests.html', no_instructor_requests=no_instructor_requests)
+            query = text("""SELECT request.course_id, 
+                                   course.name  AS course_name, 
+                                   request.student_id, 
+                                   student.name AS student_name 
+                            FROM   request 
+                                   INNER JOIN course 
+                                           ON request.user_id = course.user_id 
+                                              AND request.course_id = course.id 
+                                   INNER JOIN student 
+                                           ON request.user_id = student.user_id 
+                                              AND request.student_id = student.id 
+                            WHERE  request.user_id = :user_id 
+                                   AND request.term = :term 
+                                   AND NOT EXISTS (SELECT 1 
+                                                   FROM   request_missing_instructor 
+                                                   WHERE  request.course_id = request_missing_instructor.course_id) 
+                                   AND NOT EXISTS (SELECT 1 
+                                                   FROM   request_missing_prereq 
+                                                   WHERE  request.course_id = request_missing_prereq.course_id); 
+            """)
+            valid_requests = connection.execute(query,
+                                                term=current_user.current_term, user_id=current_user.id).fetchall()
+
+            reject_dict = {}
+
+            for row in no_instructor_requests:
+                reject_dict[(row.student_id, row.course_id)] = \
+                    {'course_name': row.course_name, 'student_name': row.student_name, 'no_instructor': True}
+
+            for row in missing_prereqs:
+                key = (row.student_id, row.course_id)
+                if key in reject_dict:
+                    if 'missing_prereqs' in reject_dict[key]:
+                        reject_dict[key]['missing_prereqs'].append({'id': row.prereq_id, 'name': row.prereq_name})
+                    else:
+                        reject_dict[key]['missing_prereqs'] = [{'id': row.prereq_id, 'name': row.prereq_name}]
+                else:
+                    reject_dict[key] = {
+                        'missing_prereqs': [{'id': row.prereq_id, 'name': row.prereq_name}]
+                    }
+
+        return render_template('rejected-requests.html', reject_dict=reject_dict, valid_requests=valid_requests)
     else:
         current_user.increment_term()
         return redirect(url_for('assign_instructors'))
