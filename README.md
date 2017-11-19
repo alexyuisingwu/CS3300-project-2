@@ -5,5 +5,5 @@ Access the app online at [https://cs3300-project-2.herokuapp.com](https://cs3300
 ## Installation and Running
 ```
 pip3 install -r requirements.txt
-python run.py
+python3 run.py
 ```
