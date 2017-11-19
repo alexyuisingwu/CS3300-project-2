@@ -139,14 +139,13 @@ def assign_instructors_after_requests():
                             'update instructor set course_id = :course_id where user_id = :user_id and name = :instructor_name')
                         connection.execute(query,
                                            course_id=int(course_id), user_id=user_id, instructor_name=instructor_name)
-        return redirect(url_for('rejected_requests'))
+        return redirect(url_for('request_report'))
 
 
 # TODO: handle running out of request files
-@app.route('/rejected-requests', methods=['GET', 'POST'])
+@app.route('/request-report', methods=['GET', 'POST'])
 @login_required
-def rejected_requests():
-    # TODO: move database modifications to POST request (either in calling function or after submit button pressed)
+def request_report():
     if request.method == 'GET':
         with db.engine.begin() as connection:
             # tracks courses for current user. instructor_id is id of assigned instructor (NULL if course unassigned)
@@ -160,7 +159,6 @@ def rejected_requests():
                                                AND course.id = instructor.course_id 
                               WHERE  course.user_id = :user_id; """)
             connection.execute(query, user_id=current_user.id)
-            connection.execute('create index course_helper_instructor_id_idx on course_helper(instructor_id)')
 
             # tracks requests for courses missing instructors
             query = text("""CREATE temp TABLE request_missing_instructor AS 
@@ -243,17 +241,6 @@ def rejected_requests():
             valid_requests = connection.execute(query,
                                                 term=current_user.current_term, user_id=current_user.id).fetchall()
 
-            records = []
-            current_year = get_term_year(current_user.current_term)
-
-            # insert records for all valid requests
-            for row in valid_requests:
-                record = {'user_id': current_user.id, 'student_id': row.student_id, 'course_id': row.course_id,
-                          'grade': get_random_grade(), 'year': current_year, 'term': current_user.current_term}
-                records.append(record)
-            if records:
-                connection.execute(AcademicRecord.__table__.insert(), records)
-
             reject_dict = {}
 
             for row in no_instructor_requests:
@@ -271,7 +258,23 @@ def rejected_requests():
                     reject_dict[key] = {
                         'missing_prereqs': [{'id': row.prereq_id, 'name': row.prereq_name}]
                     }
-        return render_template('rejected-requests.html', reject_dict=reject_dict, valid_requests=valid_requests)
+        return render_template('request-report.html', reject_dict=reject_dict, valid_requests=valid_requests)
     else:
+        with db.engine.begin() as connection:
+
+            records = []
+            current_year = get_term_year(current_user.current_term)
+
+            # hacky workaround for only modifying database (updating records) on POST request
+            for student_id, course_id in request.form.items():
+                if student_id != 'csrf_token':
+                    # insert records for all valid requests
+                    record = {'user_id': current_user.id, 'student_id': student_id, 'course_id': course_id,
+                              'grade': get_random_grade(), 'year': current_year, 'term': current_user.current_term}
+                    records.append(record)
+
+            if records:
+                connection.execute(AcademicRecord.__table__.insert(), records)
+
         current_user.increment_term()
         return redirect(url_for('assign_instructors'))
