@@ -97,21 +97,27 @@ def assign_instructors_after_requests():
     user_id = current_user.id
     # TODO: consider changing number of requests to number of valid requests (accounting for prereqs)
     if request.method == 'GET':
-        query = text("""select t1.id, course.name as name, cost, num_requests, instructor.name as instructor from
-                        (select course.id, count(request.user_id) as num_requests from
-                                    course left join request
-                                    on course.id = request.course_id
-                                    and course.user_id = request.user_id
-                                    and request.term = :term
-                                    where course.user_id = :user_id
-                                    group by course.id) as t1
-                        inner join course
-                        on course.user_id = :user_id
-                        and t1.id = course.id
-                        left join instructor
-                        on instructor.user_id = :user_id
-                        and course.id = instructor.course_id
-                        order by t1.id;""")
+        query = text("""SELECT t1.id, 
+                               course.name, 
+                               cost, 
+                               num_requests, 
+                               instructor.name AS instructor 
+                        FROM   (SELECT course.id, 
+                                       Count(request.user_id) AS num_requests 
+                                FROM   course 
+                                       LEFT JOIN request 
+                                              ON course.id = request.course_id 
+                                                 AND course.user_id = request.user_id 
+                                                 AND request.term = :term 
+                                WHERE  course.user_id = :user_id 
+                                GROUP  BY course.id) AS t1 
+                               INNER JOIN course 
+                                       ON course.user_id = :user_id 
+                                          AND t1.id = course.id 
+                               LEFT JOIN instructor 
+                                      ON instructor.user_id = :user_id 
+                                         AND course.id = instructor.course_id 
+                        ORDER  BY t1.id; """)
         courses = db.engine.execute(query.execution_options(autocommit=True), user_id=user_id,
                                     term=current_user.current_term).fetchall()
         instructors = Instructor.query.filter_by(user_id=user_id).order_by(Instructor.name)
@@ -136,11 +142,10 @@ def assign_instructors_after_requests():
         return redirect(url_for('rejected_requests'))
 
 
-# TODO: display granted requests
+# TODO: handle running out of request files
 @app.route('/rejected-requests', methods=['GET', 'POST'])
 @login_required
 def rejected_requests():
-    # TODO: prereq validation
     # TODO: consider index on temp table
     # TODO: move database modifications to POST request (either in calling function or after submit button pressed)
     if request.method == 'GET':
@@ -223,10 +228,14 @@ def rejected_requests():
                                    AND request.term = :term 
                                    AND NOT EXISTS (SELECT 1 
                                                    FROM   request_missing_instructor 
-                                                   WHERE  request.course_id = request_missing_instructor.course_id) 
+                                                   WHERE  request.course_id = 
+                            request_missing_instructor.course_id) 
                                    AND NOT EXISTS (SELECT 1 
                                                    FROM   request_missing_prereq 
-                                                   WHERE  request.course_id = request_missing_prereq.course_id); 
+                                                   WHERE  request.course_id = 
+                                                          request_missing_prereq.course_id) 
+                            ORDER  BY request.student_id, 
+                                      request.course_id; 
             """)
             valid_requests = connection.execute(query,
                                                 term=current_user.current_term, user_id=current_user.id).fetchall()
@@ -259,7 +268,6 @@ def rejected_requests():
                     reject_dict[key] = {
                         'missing_prereqs': [{'id': row.prereq_id, 'name': row.prereq_name}]
                     }
-
         return render_template('rejected-requests.html', reject_dict=reject_dict, valid_requests=valid_requests)
     else:
         current_user.increment_term()

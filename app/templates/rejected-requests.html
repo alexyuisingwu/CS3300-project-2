@@ -20,6 +20,7 @@
 
 <h1>{{get_term_name(current_user.current_term) ~ " Request Report"}}</h1>
 
+{% if valid_requests %}
 <h3>Accepted Requests</h3>
 <table id="accepted-requests" class="table table-striped">
     <thead>
@@ -41,9 +42,15 @@
     {% endfor %}
     </tbody>
 </table>
+{% else %}
+<div class="alert alert-danger" role="alert">
+  <strong>Oh no!</strong> No requests were accepted.
+</div>
+{% endif %}
 
 <h3>Rejected Requests</h3>
 
+{% if reject_dict %}
 <table id="rejected-requests" class="table table-striped">
     <thead>
     <tr>
@@ -55,7 +62,7 @@
     </tr>
     </thead>
     <tbody>
-    {% for (student_id, course_id), info in reject_dict.items() %}
+    {% for (student_id, course_id), info in reject_dict|dictsort %}
     <tr class="alert alert-danger">
         <td>{{ course_id }}</td>
         <td>{{ info.course_name }}</td>
@@ -80,6 +87,11 @@
 
     </tbody>
 </table>
+{% else %}
+<div class="alert alert-success" role="alert">
+  <strong>Good job!</strong> All requests were fulfilled!
+</div>
+{% endif %}
 
 <form action="/rejected-requests" method="POST">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/> <br>
