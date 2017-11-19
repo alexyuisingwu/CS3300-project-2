@@ -148,6 +148,7 @@ def assign_instructors_after_requests():
 def request_report():
     if request.method == 'GET':
         with db.engine.begin() as connection:
+            connection.execute('drop table if exists course_helper')
             # tracks courses for current user. instructor_id is id of assigned instructor (NULL if course unassigned)
             query = text("""CREATE temp TABLE course_helper AS 
                               SELECT course.id, 
@@ -160,6 +161,7 @@ def request_report():
                               WHERE  course.user_id = :user_id; """)
             connection.execute(query, user_id=current_user.id)
 
+            connection.execute('drop table if exists request_missing_instructor')
             # tracks requests for courses missing instructors
             query = text("""CREATE temp TABLE request_missing_instructor AS 
                             SELECT request.course_id, 
@@ -180,6 +182,8 @@ def request_report():
             connection.execute(query, user_id=current_user.id, term=current_user.current_term)
 
             no_instructor_requests = connection.execute('select * from request_missing_instructor').fetchall()
+
+            connection.execute('drop table if exists request_missing_prereq')
 
             # tracks requests for courses with missing prereqs
             # NOTE: a single course can appear multiple times as its request can miss multiple prereqs
@@ -258,6 +262,10 @@ def request_report():
                     reject_dict[key] = {
                         'missing_prereqs': [{'id': row.prereq_id, 'name': row.prereq_name}]
                     }
+            connection.execute('drop table if exists course_helper')
+            connection.execute('drop table if exists request_missing_instructor')
+            connection.execute('drop table if exists request_missing_prereq')
+
         return render_template('request-report.html', reject_dict=reject_dict, valid_requests=valid_requests)
     else:
         with db.engine.begin() as connection:
