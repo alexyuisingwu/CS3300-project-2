@@ -146,10 +146,10 @@ def assign_instructors_after_requests():
 @app.route('/rejected-requests', methods=['GET', 'POST'])
 @login_required
 def rejected_requests():
-    # TODO: consider index on temp table
     # TODO: move database modifications to POST request (either in calling function or after submit button pressed)
     if request.method == 'GET':
         with db.engine.begin() as connection:
+            # tracks courses for current user. instructor_id is id of assigned instructor (NULL if course unassigned)
             query = text("""CREATE temp TABLE course_helper AS 
                               SELECT course.id, 
                                      course.name, 
@@ -160,7 +160,9 @@ def rejected_requests():
                                                AND course.id = instructor.course_id 
                               WHERE  course.user_id = :user_id; """)
             connection.execute(query, user_id=current_user.id)
+            connection.execute('create index course_helper_instructor_id_idx on course_helper(instructor_id)')
 
+            # tracks requests for courses missing instructors
             query = text("""CREATE temp TABLE request_missing_instructor AS 
                             SELECT request.course_id, 
                                    t1.course_name AS course_name,
@@ -181,8 +183,8 @@ def rejected_requests():
 
             no_instructor_requests = connection.execute('select * from request_missing_instructor').fetchall()
 
-            # selects all requests with missing prereqs
-            # NOTE: a single course can appear multiple times as it can miss multiple prereqs
+            # tracks requests for courses with missing prereqs
+            # NOTE: a single course can appear multiple times as its request can miss multiple prereqs
             query = text("""CREATE TEMP TABLE request_missing_prereq AS
                             SELECT request.student_id, 
                                    student.name AS student_name, 
@@ -213,6 +215,7 @@ def rejected_requests():
             connection.execute(query, user_id=current_user.id, term=current_user.current_term)
             missing_prereqs = connection.execute('select * from request_missing_prereq')
 
+            # selects all valid requests by subtracting all user requests from invalid requests
             query = text("""SELECT request.course_id, 
                                    course.name  AS course_name, 
                                    request.student_id, 
