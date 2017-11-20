@@ -164,7 +164,7 @@ def request_report():
             connection.execute('drop table if exists request_missing_instructor')
             # tracks requests for courses missing instructors
             query = text("""CREATE temp TABLE request_missing_instructor AS 
-                            SELECT request.course_id, 
+                            SELECT request.course_id AS course_id, 
                                    t1.course_name AS course_name,
                                    student.name AS student_name, 
                                    request.student_id 
