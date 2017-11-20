@@ -14,6 +14,8 @@
 </head>
 <body>
 {% include "partials/navigation-bar.html" %}
+{% if records %}
+
 <h3>Academic Records</h3>
 
 <table class="table table-striped">
@@ -42,6 +44,11 @@
     {% endfor %}
     </tbody>
 </table>
+{% else %}
+<div class="alert alert-info" role="alert">
+        There are no records in the system as your students have not yet taken any courses.
+</div>
+{% endif %}
 
 </body>
 </html>

@@ -315,6 +315,6 @@ def academic_records():
                               year, 
                               term """)
 
-    records = db.engine.execute(query, user_id=current_user.id)
+    records = db.engine.execute(query, user_id=current_user.id).fetchall()
 
     return render_template('academic-records.html', records=records)
