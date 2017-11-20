@@ -289,3 +289,32 @@ def request_report():
 
         current_user.increment_term()
         return redirect(url_for('assign_instructors'))
+
+
+@app.route('/academic-records')
+@login_required
+def academic_records():
+
+    query = text("""SELECT student.id   AS student_id, 
+                           student.name AS student_name, 
+                           course.id    AS course_id, 
+                           course.name  AS course_name, 
+                           year, 
+                           term, 
+                           grade 
+                    FROM   academic_record 
+                           INNER JOIN course 
+                                   ON academic_record.user_id = course.user_id 
+                                      AND academic_record.course_id = course.id 
+                           INNER JOIN student 
+                                   ON academic_record.user_id = student.user_id 
+                                      AND academic_record.student_id = student.id 
+                    WHERE  academic_record.user_id = :user_id 
+                    ORDER  BY student_id, 
+                              course_id, 
+                              year, 
+                              term """)
+
+    records = db.engine.execute(query, user_id=current_user.id)
+
+    return render_template('academic-records.html', records=records)
