@@ -253,6 +253,7 @@ def request_report():
 
             for row in missing_prereqs:
                 key = (row.student_id, row.course_id)
+                # request already rejected as course has no instructor (so course_name and student_name already set)
                 if key in reject_dict:
                     if 'missing_prereqs' in reject_dict[key]:
                         reject_dict[key]['missing_prereqs'].append({'id': row.prereq_id, 'name': row.prereq_name})
@@ -260,7 +261,9 @@ def request_report():
                         reject_dict[key]['missing_prereqs'] = [{'id': row.prereq_id, 'name': row.prereq_name}]
                 else:
                     reject_dict[key] = {
-                        'missing_prereqs': [{'id': row.prereq_id, 'name': row.prereq_name}]
+                        'missing_prereqs': [{'id': row.prereq_id, 'name': row.prereq_name}],
+                        'course_name': row.course_name,
+                        'student_name': row.student_name
                     }
             connection.execute('drop table if exists course_helper')
             connection.execute('drop table if exists request_missing_instructor')
@@ -286,3 +289,32 @@ def request_report():
 
         current_user.increment_term()
         return redirect(url_for('assign_instructors'))
+
+
+@app.route('/academic-records')
+@login_required
+def academic_records():
+
+    query = text("""SELECT student.id   AS student_id, 
+                           student.name AS student_name, 
+                           course.id    AS course_id, 
+                           course.name  AS course_name, 
+                           year, 
+                           term, 
+                           grade 
+                    FROM   academic_record 
+                           INNER JOIN course 
+                                   ON academic_record.user_id = course.user_id 
+                                      AND academic_record.course_id = course.id 
+                           INNER JOIN student 
+                                   ON academic_record.user_id = student.user_id 
+                                      AND academic_record.student_id = student.id 
+                    WHERE  academic_record.user_id = :user_id 
+                    ORDER  BY student_id, 
+                              course_id, 
+                              year, 
+                              term """)
+
+    records = db.engine.execute(query, user_id=current_user.id).fetchall()
+
+    return render_template('academic-records.html', records=records)
