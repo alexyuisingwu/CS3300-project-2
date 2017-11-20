@@ -253,6 +253,7 @@ def request_report():
 
             for row in missing_prereqs:
                 key = (row.student_id, row.course_id)
+                # request already rejected as course has no instructor (so course_name and student_name already set)
                 if key in reject_dict:
                     if 'missing_prereqs' in reject_dict[key]:
                         reject_dict[key]['missing_prereqs'].append({'id': row.prereq_id, 'name': row.prereq_name})
@@ -260,7 +261,9 @@ def request_report():
                         reject_dict[key]['missing_prereqs'] = [{'id': row.prereq_id, 'name': row.prereq_name}]
                 else:
                     reject_dict[key] = {
-                        'missing_prereqs': [{'id': row.prereq_id, 'name': row.prereq_name}]
+                        'missing_prereqs': [{'id': row.prereq_id, 'name': row.prereq_name}],
+                        'course_name': row.course_name,
+                        'student_name': row.student_name
                     }
             connection.execute('drop table if exists course_helper')
             connection.execute('drop table if exists request_missing_instructor')
