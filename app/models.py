@@ -61,7 +61,7 @@ class Account(db.Model, UserMixin):
             connection.execute('update instructor set course_id = NULL')
 
     def restart_simulation(self):
-        db.session.query(Account).filter_by(id=self.id).update({'current_term': 15})
+        db.session.query(Account).filter_by(id=self.id).update({'current_term': 0})
         db.session.query(Instructor).filter_by(user_id=self.id).update({'course_id': None})
         db.session.query(AcademicRecord).filter_by(user_id=self.id).delete()
         db.session.commit()

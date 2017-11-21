@@ -1,7 +1,12 @@
 <!--TODO: convert into actual bar with proper styling/structure-->
-<input type="button" onclick="window.location='/logout'" value="Log out"/>
-<input type="button" onclick="window.location='/academic-records'" value="Academic Records"/>
-<form action="/restart-simulation" method="POST">
-    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/> <br>
-    <input type="submit" value="Restart Simulation"/>
-</form>
+<div id="header">
+    <input type="button" onclick="window.location='/academic-records'" value="Academic Records"/>
+    <form action="/restart-simulation" method="POST" style="display:inline-block">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/> <br>
+        <input type="submit" value="Restart Simulation"/>
+    </form>
+    <form action="/logout" method="POST" style="display:inline-block">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/> <br>
+        <input type="submit" value="Log out"/>
+    </form>
+</div>
