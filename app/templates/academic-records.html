@@ -38,7 +38,7 @@
         <td>{{ record.course_id }}</td>
         <td>{{ record.course_name }}</td>
         <td>{{ record.year }}</td>
-        <td>{{ record.term }}</td>
+        <td>{{ get_term_name(record.term) }}</td>
         <td>{{ record.grade }}</td>
     </tr>
     {% endfor %}

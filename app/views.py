@@ -1,6 +1,6 @@
+import sqlalchemy
 from flask import url_for, redirect, render_template, request, json, abort
 from flask_login import login_user, logout_user, login_required, current_user
-from sqlalchemy import text
 
 from app import app, db
 from app.forms import RegistrationForm, LoginForm
@@ -25,7 +25,8 @@ def register():
             username = request.form['username']
             email = request.form['email']
             passhash = Account.get_hashed_password(request.form['password'])
-            query = text('insert into account (username, email, passhash) values (:username, :email, :passhash)')
+            query = sqlalchemy.text(
+                'insert into account (username, email, passhash) values (:username, :email, :passhash)')
             db.engine.execute(query.execution_options(autocommit=True), username=username, email=email,
                               passhash=passhash)
 
@@ -84,7 +85,7 @@ def assign_instructors():
     else:
         for course_id, instructor_name in request.form.items():
             if course_id != 'csrf_token' and instructor_name != '':
-                query = text(
+                query = sqlalchemy.text(
                     'update instructor set course_id = :course_id where user_id = :user_id and name = :instructor_name')
                 db.engine.execute(query.execution_options(autocommit=True), course_id=int(course_id), user_id=user_id,
                                   instructor_name=instructor_name)
@@ -97,7 +98,7 @@ def assign_instructors_after_requests():
     user_id = current_user.id
     # TODO: consider changing number of requests to number of valid requests (accounting for prereqs)
     if request.method == 'GET':
-        query = text("""SELECT t1.id, 
+        query = sqlalchemy.text("""SELECT t1.id, 
                                course.name, 
                                cost, 
                                num_requests, 
@@ -129,13 +130,13 @@ def assign_instructors_after_requests():
             for course_id, instructor_name in request.form.items():
                 if course_id != 'csrf_token':
                     # clear old instructor assignment
-                    query = text(
+                    query = sqlalchemy.text(
                         'update instructor set course_id = NULL where user_id = :user_id and course_id = :course_id')
                     connection.execute(query,
                                        course_id=int(course_id), user_id=user_id)
                     if instructor_name != '':
                         # update assignment
-                        query = text(
+                        query = sqlalchemy.text(
                             'update instructor set course_id = :course_id where user_id = :user_id and name = :instructor_name')
                         connection.execute(query,
                                            course_id=int(course_id), user_id=user_id, instructor_name=instructor_name)
@@ -150,7 +151,7 @@ def request_report():
         with db.engine.begin() as connection:
             connection.execute('drop table if exists course_helper')
             # tracks courses for current user. instructor_id is id of assigned instructor (NULL if course unassigned)
-            query = text("""CREATE temp TABLE course_helper AS 
+            query = sqlalchemy.text("""CREATE temp TABLE course_helper AS 
                               SELECT course.id, 
                                      course.name, 
                                      instructor.id AS instructor_id 
@@ -163,7 +164,7 @@ def request_report():
 
             connection.execute('drop table if exists request_missing_instructor')
             # tracks requests for courses missing instructors
-            query = text("""CREATE temp TABLE request_missing_instructor AS 
+            query = sqlalchemy.text("""CREATE temp TABLE request_missing_instructor AS 
                             SELECT request.course_id AS course_id, 
                                    t1.course_name AS course_name,
                                    student.name AS student_name, 
@@ -187,7 +188,7 @@ def request_report():
 
             # tracks requests for courses with missing prereqs
             # NOTE: a single course can appear multiple times as its request can miss multiple prereqs
-            query = text("""CREATE TEMP TABLE request_missing_prereq AS
+            query = sqlalchemy.text("""CREATE TEMP TABLE request_missing_prereq AS
                             SELECT request.student_id, 
                                    student.name AS student_name, 
                                    request.course_id, 
@@ -218,7 +219,7 @@ def request_report():
             missing_prereqs = connection.execute('select * from request_missing_prereq')
 
             # selects all valid requests by subtracting all user requests from invalid requests
-            query = text("""SELECT request.course_id, 
+            query = sqlalchemy.text("""SELECT request.course_id, 
                                    course.name  AS course_name, 
                                    request.student_id, 
                                    student.name AS student_name 
@@ -294,8 +295,7 @@ def request_report():
 @app.route('/academic-records')
 @login_required
 def academic_records():
-
-    query = text("""SELECT student.id   AS student_id, 
+    query = sqlalchemy.text("""SELECT student.id   AS student_id, 
                            student.name AS student_name, 
                            course.id    AS course_id, 
                            course.name  AS course_name, 
@@ -318,3 +318,10 @@ def academic_records():
     records = db.engine.execute(query, user_id=current_user.id).fetchall()
 
     return render_template('academic-records.html', records=records)
+
+
+@app.route('/restart-simulation', methods=['POST'])
+@login_required
+def restart_simulation():
+    current_user.restart_simulation()
+    return redirect(url_for('assign_instructors'))
