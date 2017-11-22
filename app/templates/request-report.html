@@ -19,7 +19,7 @@
     </thead>
     <tbody>
     {% for row in valid_requests %}
-        <tr class="alert alert-success">
+        <tr class="success">
             <td>{{ row.course_id }}</td>
             <td>{{ row.course_name }}</td>
             <td>{{ row.student_id }}</td>
@@ -49,7 +49,7 @@
     </thead>
     <tbody>
     {% for (student_id, course_id), info in reject_dict|dictsort %}
-    <tr class="alert alert-danger">
+    <tr class="danger">
         <td>{{ course_id }}</td>
         <td>{{ info.course_name }}</td>
         <td>{{ student_id }}</td>

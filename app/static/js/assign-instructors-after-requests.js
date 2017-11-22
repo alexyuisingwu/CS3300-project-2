@@ -35,7 +35,7 @@ $(document).ready(function(){
         if (error) {
             errorDiv.show();
             changes.forEach(e => {
-                $(e).attr("class", "alert alert-danger");
+                $(e).attr("class", "danger");
             });
             $(document).scrollTop(errorDiv.offset().top);
             return false;

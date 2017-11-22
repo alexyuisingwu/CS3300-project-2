@@ -42,12 +42,12 @@
         {% for course in courses %}
         <tr {% if course.num_requests > 0 %}
                 {% if course.instructor is none %}
-                class="alert alert-danger"
+                class="danger"
                 {% else %}
-                class="alert alert-success"
+                class="success"
                 {% endif %}
             {% elif course.instructor is not none %}
-                class="alert alert-warning"
+                class="warning"
             {% endif %}
         >
             <td>{{ course.id }}</td>
