@@ -8,13 +8,15 @@ from app.models import Account, Course, Instructor, AcademicRecord
 from app.utils.database_utils import import_csv_by_file, import_csvs_by_filepath
 from app.utils.utils import is_safe_url, get_random_grade, get_term_year
 
+EXCLUDED_PATHS_FOR_SAVING = {'/', '/logout', '/academic_records'}
+
 
 # saves current page of user to restore progress after logout
 @app.url_value_preprocessor
 def save_path(endpoint, values):
     if not current_user.is_anonymous:
         path = request.path
-        if path != '/' and path != '/logout' and path != '/academic-records':
+        if path not in EXCLUDED_PATHS_FOR_SAVING:
             current_user.save_path(request.path)
     return None
 

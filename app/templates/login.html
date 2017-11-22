@@ -1,19 +1,15 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <title>Login</title>
-</head>
+{% extends "bases/guest-base.html" %}
+{% block title %}Login{% endblock %}
+{% block content %}
 <body>
 {% from "form-helpers.html" import render_field %}
-<form method=post>
+<form action="/login" method="POST">
     {{ form.csrf_token }}
-  <dl>
     {{ render_field(form.username) }}
     {{ render_field(form.password) }}
-  </dl>
-  <p><input type=submit value="Log In">
+    <button class="btn btn-default" type=submit>Log In</button>
 </form>
 <a href="{{url_for('register')}}">Don't have an account? Register here!</a>
 </body>
-</html>
+{% endblock %}
+
