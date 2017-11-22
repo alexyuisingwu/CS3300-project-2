@@ -28,7 +28,8 @@ def index():
         if path == '/':
             return redirect(url_for('assign_instructors'))
         else:
-            return redirect(current_user.current_path)
+            return redirect(path)
+
 
 @app.route('/register', methods=['GET', 'POST'])
 def register():

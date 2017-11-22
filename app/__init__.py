@@ -7,9 +7,11 @@ from flask_sqlalchemy import SQLAlchemy
 from flask_wtf import CSRFProtect
 from sqlalchemy import event
 from sqlalchemy.engine import Engine
+from flask_bootstrap import Bootstrap
 
 app = Flask(__name__)
 csrf = CSRFProtect(app)
+Bootstrap(app)
 
 if environ.get('IS_HEROKU'):
     app.config.from_object('config.ProductionConfig')
