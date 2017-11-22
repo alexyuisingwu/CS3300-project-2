@@ -38,4 +38,4 @@ login_manager.login_view = 'login'
 
 @login_manager.user_loader
 def load_user(user_id):
-    return models.Account.query.filter(Account.id == user_id).first()
+    return models.Account.query.get(user_id)

@@ -47,6 +47,7 @@ class Account(db.Model, UserMixin):
     email = db.Column(String(255), nullable=False, unique=True)
     passhash = db.Column(db.String(128), nullable=False)
     current_term = db.Column(Integer, nullable=False, server_default=text("0"))
+    current_path = db.Column(String(255), nullable=False, server_default='/')
 
     @classmethod
     def get_hashed_password(cls, password):
@@ -61,11 +62,14 @@ class Account(db.Model, UserMixin):
             connection.execute('update instructor set course_id = NULL')
 
     def restart_simulation(self):
-        db.session.query(Account).filter_by(id=self.id).update({'current_term': 0})
+        self.current_term = 0
         db.session.query(Instructor).filter_by(user_id=self.id).update({'course_id': None})
         db.session.query(AcademicRecord).filter_by(user_id=self.id).delete()
         db.session.commit()
 
+    def save_path(self, path):
+        self.current_path = path
+        db.session.commit()
 
 class Course(db.Model, MyMixin):
     user_id = db.Column(Integer)

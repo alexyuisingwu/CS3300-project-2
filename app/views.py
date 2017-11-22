@@ -9,13 +9,26 @@ from app.utils.database_utils import import_csv_by_file, import_csvs_by_filepath
 from app.utils.utils import is_safe_url, get_random_grade, get_term_year
 
 
+# saves current page of user to restore progress after logout
+@app.url_value_preprocessor
+def save_path(endpoint, values):
+    if not current_user.is_anonymous:
+        path = request.path
+        if path != '/' and path != '/logout' and path != '/academic-records':
+            current_user.save_path(request.path)
+    return None
+
+
 @app.route('/')
 def index():
     if current_user.is_anonymous:
         return redirect(url_for('login'))
     else:
-        return redirect(url_for('assign_instructors'))
-
+        path = current_user.current_path
+        if path == '/':
+            return redirect(url_for('assign_instructors'))
+        else:
+            return redirect(current_user.current_path)
 
 @app.route('/register', methods=['GET', 'POST'])
 def register():
