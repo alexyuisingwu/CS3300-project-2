@@ -12,7 +12,7 @@
 <form id="csv-upload" action="/csvs" method='POST' class="dropzone" enctype="multipart/form-data">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/> <br>
 </form>
-<button type="button" id="upload-csv-button">Upload</button>
+<button class="btn btn-default" type="button" id="upload-csv-button">Upload</button>
 
 <script>
 

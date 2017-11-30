@@ -18,12 +18,14 @@ class RegistrationForm(FlaskForm):
         valid = True
         if not super().validate():
             valid = False
-        if Account.query.filter_by(username=self.username.data).first() is not None:
-            self.username.errors.append('Username taken')
-            valid = False
-        if Account.query.filter_by(email=self.email.data).first() is not None:
-            self.email.errors.append('Email taken')
-            valid = False
+        if not self.username.errors:
+            if Account.query.filter_by(username=self.username.data).first() is not None:
+                self.username.errors.append('Username taken')
+                valid = False
+        if not self.email.errors:
+            if Account.query.filter_by(email=self.email.data).first() is not None:
+                self.email.errors.append('Email taken')
+                valid = False
         return valid
 
 
@@ -35,11 +37,12 @@ class LoginForm(FlaskForm):
         valid = True
         if not super().validate():
             valid = False
-        user = Account.query.filter_by(username=self.username.data).first()
-        if user is None:
-            self.username.errors.append('Username not found')
-            return False
-        if not user.validate_password(self.password.data):
-            self.password.errors.append('Incorrect password')
-            return False
+        if not self.username.errors:
+            user = Account.query.filter_by(username=self.username.data).first()
+            if user is None:
+                self.username.errors.append('Username not found')
+                return False
+            if not self.password.errors and not user.validate_password(self.password.data):
+                self.password.errors.append('Incorrect password')
+                return False
         return valid

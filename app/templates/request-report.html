@@ -1,22 +1,8 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <title>Request Report</title>
-    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css"
-          integrity="sha384-BVYiiSIFeK1dGmJRAkycuHAHRg32OmUcww7on3RYdg4Va+PmSTsz/K68vbdEjh4u" crossorigin="anonymous">
-    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap-theme.min.css"
-          integrity="sha384-rHyoN1iRsVXV4nD0JutlnGaslCJuC7uwjduW9SVrLvRYooPp2bWYgmgJQIXwl/Sp" crossorigin="anonymous">
-    <link rel="stylesheet"
-          href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-select/1.12.4/css/bootstrap-select.css"/>
-    <script defer src="https://ajax.googleapis.com/ajax/libs/jquery/3.2.1/jquery.min.js"></script>
-    <script defer src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js"
-            integrity="sha384-Tc5IQib027qvyjSMfHjOMaLkfuWVxZxUPnCJA7l2mCWNIpG9mGCD8wGNIcPD7Txa"
-            crossorigin="anonymous"></script>
-    <script defer src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-select/1.12.4/js/bootstrap-select.js"></script>
-</head>
-<body>
-{% include "partials/navigation-bar.html" %}
+{% extends "bases/logged-in-base.html" %}
+
+{% block title %}Request Report{% endblock %}
+
+{% block content %}
 
 <h1>{{get_term_name(current_user.current_term) ~ " Request Report"}}</h1>
 
@@ -33,7 +19,7 @@
     </thead>
     <tbody>
     {% for row in valid_requests %}
-        <tr class="alert alert-success">
+        <tr class="success">
             <td>{{ row.course_id }}</td>
             <td>{{ row.course_name }}</td>
             <td>{{ row.student_id }}</td>
@@ -63,7 +49,7 @@
     </thead>
     <tbody>
     {% for (student_id, course_id), info in reject_dict|dictsort %}
-    <tr class="alert alert-danger">
+    <tr class="danger">
         <td>{{ course_id }}</td>
         <td>{{ info.course_name }}</td>
         <td>{{ student_id }}</td>
@@ -99,7 +85,6 @@
     {% for row in valid_requests %}
         <input type="hidden" name="{{row.student_id}}" value="{{row.course_id}}">
     {% endfor %}
-    <button type="submit" id="next-term-button"> Move on to Next Term </button>
+    <button class="btn btn-default" type="submit" id="next-term-button"> Move on to Next Term </button>
 </form>
-</body>
-</html>
+{% endblock %}

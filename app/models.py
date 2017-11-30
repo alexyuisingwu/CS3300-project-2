@@ -47,6 +47,7 @@ class Account(db.Model, UserMixin):
     email = db.Column(String(255), nullable=False, unique=True)
     passhash = db.Column(db.String(128), nullable=False)
     current_term = db.Column(Integer, nullable=False, server_default=text("0"))
+    current_path = db.Column(String(255), nullable=False, server_default='/')
 
     @classmethod
     def get_hashed_password(cls, password):
@@ -60,6 +61,15 @@ class Account(db.Model, UserMixin):
             connection.execute('update account set current_term = current_term + 1 where id = {}'.format(self.id))
             connection.execute('update instructor set course_id = NULL')
 
+    def restart_simulation(self):
+        self.current_term = 0
+        db.session.query(Instructor).filter_by(user_id=self.id).update({'course_id': None})
+        db.session.query(AcademicRecord).filter_by(user_id=self.id).delete()
+        db.session.commit()
+
+    def save_path(self, path):
+        self.current_path = path
+        db.session.commit()
 
 class Course(db.Model, MyMixin):
     user_id = db.Column(Integer)
@@ -68,6 +78,7 @@ class Course(db.Model, MyMixin):
     cost = db.Column(Integer, nullable=False)
     PrimaryKeyConstraint(user_id, id)
     UniqueConstraint(user_id, name)
+    ForeignKeyConstraint([user_id], [Account.id], ondelete='CASCADE')
     Index('course_user_id_name_idx', user_id, name, unique=True)
 
     @classmethod
@@ -97,10 +108,13 @@ class Prereq(db.Model, MyMixin):
     user_id = db.Column(Integer)
     course_id = db.Column(Integer, nullable=False)
     prereq_id = db.Column(Integer, nullable=False)
-    ForeignKeyConstraint([user_id, course_id], [Course.user_id, Course.id], deferrable=True, initially="DEFERRED")
-    ForeignKeyConstraint([user_id, prereq_id], [Course.user_id, Course.id], deferrable=True, initially="DEFERRED")
+    ForeignKeyConstraint([user_id, course_id], [Course.user_id, Course.id], deferrable=True, initially="DEFERRED",
+                         ondelete='CASCADE')
+    ForeignKeyConstraint([user_id, prereq_id], [Course.user_id, Course.id], deferrable=True, initially="DEFERRED",
+                         ondelete='CASCADE')
 
     PrimaryKeyConstraint(user_id, course_id, prereq_id)
+    ForeignKeyConstraint([user_id], [Account.id], ondelete='CASCADE')
 
     @classmethod
     def parse_csv_by_file(cls, f):
@@ -119,7 +133,9 @@ class Instructor(db.Model, MyMixin):
 
     PrimaryKeyConstraint(user_id, id)
     UniqueConstraint(user_id, course_id)
-    ForeignKeyConstraint([user_id, course_id], [Course.user_id, Course.id], deferrable=True, initially="DEFERRED")
+    ForeignKeyConstraint([user_id], [Account.id], ondelete='CASCADE')
+    ForeignKeyConstraint([user_id, course_id], [Course.user_id, Course.id], deferrable=True, initially="DEFERRED",
+                         ondelete='CASCADE')
 
     Index('instructor_user_id_name_idx', user_id, name)
 
@@ -137,6 +153,8 @@ class Program(db.Model, MyMixin):
     name = db.Column(String(255), nullable=False)
     PrimaryKeyConstraint(user_id, id)
     UniqueConstraint(user_id, name)
+    ForeignKeyConstraint([user_id], [Account.id], ondelete='CASCADE')
+
     Index('program_user_id_name_idx', user_id, name, unique=True)
 
     @classmethod
@@ -155,7 +173,9 @@ class Student(db.Model, MyMixin):
     program_id = db.Column(Integer, nullable=True)
     PrimaryKeyConstraint(user_id, id)
     UniqueConstraint(user_id, phone)
-    ForeignKeyConstraint([user_id, program_id], [Program.user_id, Program.id], deferrable=True, initially="DEFERRED")
+    ForeignKeyConstraint([user_id], [Account.id], ondelete='CASCADE')
+    ForeignKeyConstraint([user_id, program_id], [Program.user_id, Program.id], deferrable=True, initially="DEFERRED",
+                         ondelete='CASCADE')
     Index('student_user_id_name_idx', user_id, name)
 
     @classmethod
@@ -177,8 +197,11 @@ class AcademicRecord(db.Model, MyMixin):
     # TODO: consider converting to enum (1, 2, 3, 4) for (Winter, Spring, Summer, Fall)
     term = db.Column(SmallInteger, nullable=False)
     PrimaryKeyConstraint(user_id, student_id, course_id, year, term)
-    ForeignKeyConstraint([user_id, student_id], [Student.user_id, Student.id], deferrable=True, initially="DEFERRED")
-    ForeignKeyConstraint([user_id, course_id], [Course.user_id, Course.id], deferrable=True, initially="DEFERRED")
+    ForeignKeyConstraint([user_id], [Account.id], ondelete='CASCADE')
+    ForeignKeyConstraint([user_id, student_id], [Student.user_id, Student.id], deferrable=True, initially="DEFERRED",
+                         ondelete='CASCADE')
+    ForeignKeyConstraint([user_id, course_id], [Course.user_id, Course.id], deferrable=True, initially="DEFERRED",
+                         ondelete='CASCADE')
 
     @classmethod
     def parse_csv_by_file(cls, f):
@@ -192,7 +215,9 @@ class Listing(db.Model, MyMixin):
     program_id = db.Column(Integer, nullable=False)
     course_id = db.Column(Integer, nullable=False)
     PrimaryKeyConstraint(user_id, program_id, course_id)
-    ForeignKeyConstraint([user_id, program_id], [Program.user_id, Program.id], deferrable=True, initially="DEFERRED")
+    ForeignKeyConstraint([user_id], [Account.id], ondelete='CASCADE')
+    ForeignKeyConstraint([user_id, program_id], [Program.user_id, Program.id], deferrable=True, initially="DEFERRED",
+                         ondelete='CASCADE')
 
     @classmethod
     def parse_csv_by_file(cls, f):
@@ -208,8 +233,11 @@ class Request(db.Model, MyMixin):
     term = db.Column(Integer, nullable=False)
     # each student in simulation can only request each course once per term
     PrimaryKeyConstraint(user_id, student_id, course_id, term)
-    ForeignKeyConstraint([user_id, student_id], [Student.user_id, Student.id], deferrable=True, initially="DEFERRED")
-    ForeignKeyConstraint([user_id, course_id], [Course.user_id, Course.id], deferrable=True, initially="DEFERRED")
+    ForeignKeyConstraint([user_id], [Account.id], ondelete='CASCADE')
+    ForeignKeyConstraint([user_id, student_id], [Student.user_id, Student.id], deferrable=True, initially="DEFERRED",
+                         ondelete='CASCADE')
+    ForeignKeyConstraint([user_id, course_id], [Course.user_id, Course.id], deferrable=True, initially="DEFERRED",
+                         ondelete='CASCADE')
     Index('request_user_id_term_idx', user_id, term, unique=False)
 
     @classmethod
