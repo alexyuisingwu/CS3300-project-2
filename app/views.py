@@ -341,3 +341,168 @@ def academic_records():
 def restart_simulation():
     current_user.restart_simulation()
     return redirect(url_for('assign_instructors'))
+
+@app.route('/success-management', methods=['GET','POST'])
+@login_required
+def success_management():
+    if request.method == 'GET':
+        with db.engine.begin() as connection:
+            connection.execute('drop table if exists course_helper')
+            # tracks courses for current user. instructor_id is id of assigned instructor (NULL if course unassigned)
+            query = sqlalchemy.text("""CREATE temp TABLE course_helper AS 
+                              SELECT course.id, 
+                                     course.name, 
+                                     instructor.id AS instructor_id 
+                              FROM   course 
+                                     left join instructor 
+                                            ON course.user_id = instructor.user_id 
+                                               AND course.id = instructor.course_id 
+                              WHERE  course.user_id = :user_id; """)
+            connection.execute(query, user_id=current_user.id)
+
+            connection.execute('drop table if exists request_missing_instructor')
+            # tracks requests for courses missing instructors
+            query = sqlalchemy.text("""CREATE temp TABLE request_missing_instructor AS 
+                            SELECT request.course_id AS course_id, 
+                                   t1.course_name AS course_name,
+                                   student.name AS student_name, 
+                                   request.student_id 
+                            FROM   (SELECT id   AS course_id, 
+                                           name AS course_name 
+                                    FROM   course_helper 
+                                    WHERE  instructor_id IS NULL) AS t1 
+                                   INNER JOIN request 
+                                           ON request.user_id = :user_id 
+                                              AND t1.course_id = request.course_id 
+                                              AND request.term = :term 
+                                   INNER JOIN student 
+                                           ON student.user_id = :user_id 
+                                              AND student.id = request.student_id;""")
+            connection.execute(query, user_id=current_user.id, term=current_user.current_term)
+
+            no_instructor_requests = connection.execute('select * from request_missing_instructor').fetchall()
+
+            connection.execute('drop table if exists request_missing_prereq')
+
+            # tracks requests for courses with missing prereqs
+            # NOTE: a single course can appear multiple times as its request can miss multiple prereqs
+            query = sqlalchemy.text("""CREATE TEMP TABLE request_missing_prereq AS
+                            SELECT request.student_id, 
+                                   student.name AS student_name, 
+                                   request.course_id, 
+                                   course1.name AS course_name, 
+                                   prereq.prereq_id, 
+                                   course2.name AS prereq_name 
+                            FROM   prereq 
+                                   INNER JOIN request 
+                                           ON request.user_id = prereq.user_id 
+                                              AND request.term = :term 
+                                              AND request.course_id = prereq.course_id 
+                                              AND request.user_id = :user_id 
+                                   INNER JOIN course AS course1 
+                                           ON course1.user_id = :user_id 
+                                              AND request.course_id = course1.id 
+                                   INNER JOIN course AS course2 
+                                           ON course2.user_id = :user_id 
+                                              AND prereq.prereq_id = course2.id 
+                                   INNER JOIN student 
+                                           ON student.user_id = :user_id 
+                                              AND request.student_id = student.id 
+                            WHERE  NOT EXISTS (SELECT * 
+                                               FROM   academic_record 
+                                               WHERE  user_id = :user_id 
+                                                      AND grade NOT IN ( 'D', 'F' ) 
+                                                      AND course_id = prereq_id);""")
+            connection.execute(query, user_id=current_user.id, term=current_user.current_term)
+            missing_prereqs = connection.execute('select * from request_missing_prereq')
+
+            # selects all valid requests by subtracting all user requests from invalid requests
+            valid_query = sqlalchemy.text("""SELECT COUNT(request.course_id)
+                            FROM   request 
+                                   INNER JOIN course 
+                                           ON request.user_id = course.user_id 
+                                              AND request.course_id = course.id 
+                                   INNER JOIN student 
+                                           ON request.user_id = student.user_id 
+                                              AND request.student_id = student.id 
+                            WHERE  request.user_id = :user_id 
+                                   AND request.term = :term 
+                                   AND NOT EXISTS (SELECT 1 
+                                                   FROM   request_missing_instructor 
+                                                   WHERE  request.course_id = 
+                            request_missing_instructor.course_id) 
+                                   AND NOT EXISTS (SELECT 1 
+                                                   FROM   request_missing_prereq 
+                                                   WHERE  request.course_id = 
+                                                          request_missing_prereq.course_id) 
+                            ORDER  BY request.student_id, 
+                                      request.course_id; 
+            """)
+            valid_requests_count = connection.execute(valid_query,
+                                                term=current_user.current_term, user_id=current_user.id).fetchall()
+
+            cost_query = sqlalchemy.text("""SELECT SUM(course_cost) 
+                                FROM (SELECT course.cost as course_cost
+                            FROM   request 
+                                   INNER JOIN course 
+                                           ON request.user_id = course.user_id 
+                                              AND request.course_id = course.id 
+                                   INNER JOIN student 
+                                           ON request.user_id = student.user_id 
+                                              AND request.student_id = student.id 
+                            WHERE  request.user_id = :user_id 
+                                   AND request.term = :term 
+                                   AND NOT EXISTS (SELECT 1 
+                                                   FROM   request_missing_instructor 
+                                                   WHERE  request.course_id = 
+                            request_missing_instructor.course_id) 
+                                   AND NOT EXISTS (SELECT 1 
+                                                   FROM   request_missing_prereq 
+                                                   WHERE  request.course_id = 
+                                                          request_missing_prereq.course_id)); 
+                            """)
+
+            cost = connection.execute(cost_query, term=current_user.current_term, user_id=current_user.id).fetchall()
+
+            total_query = sqlalchemy.text("""SELECT COUNT(request.course_id)
+                            FROM   request 
+                                   INNER JOIN course 
+                                           ON request.user_id = course.user_id 
+                                              AND request.course_id = course.id 
+                                   INNER JOIN student 
+                                           ON request.user_id = student.user_id 
+                                              AND request.student_id = student.id 
+                                    WHERE  request.user_id = :user_id 
+                                   AND request.term = :term 
+            """)
+            total_requests_count = connection.execute(total_query, term=current_user.current_term, user_id=current_user.id).fetchall();
+
+            reject_dict = {}
+
+            for row in no_instructor_requests:
+                reject_dict[(row.student_id, row.course_id)] = \
+                    {'course_name': row.course_name, 'student_name': row.student_name, 'no_instructor': True}
+
+            for row in missing_prereqs:
+                key = (row.student_id, row.course_id)
+                # request already rejected as course has no instructor (so course_name and student_name already set)
+                if key in reject_dict:
+                    if 'missing_prereqs' in reject_dict[key]:
+                        reject_dict[key]['missing_prereqs'].append({'id': row.prereq_id, 'name': row.prereq_name})
+                    else:
+                        reject_dict[key]['missing_prereqs'] = [{'id': row.prereq_id, 'name': row.prereq_name}]
+                else:
+                    reject_dict[key] = {
+                        'missing_prereqs': [{'id': row.prereq_id, 'name': row.prereq_name}],
+                        'course_name': row.course_name,
+                        'student_name': row.student_name
+                    }
+            connection.execute('drop table if exists course_helper')
+            connection.execute('drop table if exists request_missing_instructor')
+            connection.execute('drop table if exists request_missing_prereq')
+
+            labels = ["Valid Request", "Invalid Request"]
+            values = [int(valid_requests_count[0][0]), int(total_requests_count[0][0]) - int(valid_requests_count[0][0])]
+
+
+    return render_template('success-management.html', count=valid_requests_count, total=total_requests_count, label=labels, values=values, cost=cost)

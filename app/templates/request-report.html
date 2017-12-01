@@ -6,6 +6,8 @@
 
 <h1>{{get_term_name(current_user.current_term) ~ " Request Report"}}</h1>
 
+<button class="btn-default"><a href="/success-management">Success Record</a></button>
+
 {% if valid_requests %}
 <h3>Accepted Requests</h3>
 <table id="accepted-requests" class="table table-striped">
@@ -87,4 +89,5 @@
     {% endfor %}
     <button class="btn btn-default" type="submit" id="next-term-button"> Move on to Next Term </button>
 </form>
+
 {% endblock %}
