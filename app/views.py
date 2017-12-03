@@ -184,7 +184,7 @@ def request_report():
                             SELECT request.course_id AS course_id, 
                                    t1.course_name AS course_name,
                                    student.name AS student_name, 
-                                   request.student_id 
+                                   request.student_id AS student_id
                             FROM   (SELECT id   AS course_id, 
                                            name AS course_name 
                                     FROM   course_helper 
@@ -205,7 +205,7 @@ def request_report():
             # tracks requests for courses with missing prereqs
             # NOTE: a single course can appear multiple times as its request can miss multiple prereqs
             query = sqlalchemy.text("""CREATE TEMP TABLE request_missing_prereq AS
-                            SELECT request.student_id, 
+                            SELECT request.student_id as student_id, 
                                    student.name AS student_name, 
                                    request.course_id, 
                                    course1.name AS course_name, 
@@ -237,7 +237,7 @@ def request_report():
             # selects all valid requests by subtracting all user requests from invalid requests
             query = sqlalchemy.text("""SELECT request.course_id, 
                                    course.name  AS course_name, 
-                                   request.student_id, 
+                                   request.student_id AS student_id, 
                                    student.name AS student_name 
                             FROM   request 
                                    INNER JOIN course 
@@ -366,7 +366,7 @@ def success_management():
                             SELECT request.course_id AS course_id, 
                                    t1.course_name AS course_name,
                                    student.name AS student_name, 
-                                   request.student_id 
+                                   request.student_id as student_id 
                             FROM   (SELECT id   AS course_id, 
                                            name AS course_name 
                                     FROM   course_helper 
@@ -387,7 +387,7 @@ def success_management():
             # tracks requests for courses with missing prereqs
             # NOTE: a single course can appear multiple times as its request can miss multiple prereqs
             query = sqlalchemy.text("""CREATE TEMP TABLE request_missing_prereq AS
-                            SELECT request.student_id, 
+                            SELECT request.student_id as student_id, 
                                    student.name AS student_name, 
                                    request.course_id, 
                                    course1.name AS course_name, 
