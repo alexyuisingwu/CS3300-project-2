@@ -1,18 +1,14 @@
-import os
 import pickle
 
-import numpy as np
 import sqlalchemy
-import weka.core.jvm as jvm
 from flask import url_for, redirect, render_template, request, json, abort
 from flask_login import login_user, logout_user, login_required, current_user
-from weka.associations import Associator
-from weka.core import serialization
-from weka.core.dataset import Attribute, Instance, Instances
+from sklearn.neural_network import MLPClassifier
+from sqlalchemy import and_
 
 from app import app, db
 from app.forms import RegistrationForm, LoginForm
-from app.models import Account, Course, Instructor, AcademicRecord, WekaData
+from app.models import Account, Course, Instructor, AcademicRecord, RequestPrediction, Student
 from app.utils.database_utils import import_csv_by_file, import_csvs_by_filepath
 from app.utils.utils import is_safe_url, get_random_grade, get_term_year
 
@@ -59,7 +55,7 @@ def register():
             user = Account.query.filter_by(username=username).first()
             login_user(user)
 
-            query = sqlalchemy.text('insert into Weka_Data (user_id) values (:user_id)')
+            query = sqlalchemy.text('insert into Request_Prediction (user_id) values (:user_id)')
             db.engine.execute(query.execution_options(autocommit=True), user_id=current_user.id)
 
             # TODO: consider adding option to choose test case in UI
@@ -110,6 +106,25 @@ def assign_instructors():
     if request.method == 'GET':
         courses = Course.query.filter_by(user_id=user_id).order_by(Course.id)
         instructors = Instructor.query.filter_by(user_id=user_id).order_by(Instructor.name)
+
+        # fetch predictive model for update
+        request_prediction = RequestPrediction.query.filter_by(user_id=current_user.id).first()
+
+        if request_prediction.model is not None:
+            students = Student.query.filter_by(user_id=current_user.id)
+            predictions, probs = request_prediction.predict_students_requests(students)
+            prediction_counter = request_prediction.consolidate_predictions(predictions, probs)
+
+            prediction_output_str = 'The ids of the courses most likely to be requested are: {}\n\n' \
+                .format(list(prediction_counter.keys()))
+
+            for i, student in enumerate(students):
+                prediction_output_str += 'The ids of the top 5 courses {} is predicted to request given the classes' \
+                                         ' they have passed are: {} with associated probabilities {}\n' \
+                    .format(student.name, predictions[i], probs[i])
+
+            return render_template('assign-instructors.html', courses=courses, instructors=instructors,
+                                   prediction_output_str=prediction_output_str, prediction_counter=prediction_counter)
 
         return render_template('assign-instructors.html', courses=courses, instructors=instructors)
     else:
@@ -246,7 +261,7 @@ def request_report():
                                                       AND grade NOT IN ( 'D', 'F' ) 
                                                       AND course_id = prereq_id);""")
             connection.execute(query, user_id=current_user.id, term=current_user.current_term)
-            missing_prereqs = connection.execute('select * from request_missing_prereq')
+            missing_prereqs = connection.execute('select * from request_missing_prereq').fetchall()
 
             # selects all valid requests by subtracting all user requests from invalid requests
             query = sqlalchemy.text("""SELECT request.course_id, 
@@ -300,7 +315,10 @@ def request_report():
             connection.execute('drop table if exists request_missing_instructor')
             connection.execute('drop table if exists request_missing_prereq')
 
-        return render_template('request-report.html', reject_dict=reject_dict, valid_requests=valid_requests)
+        # TODO: consider changing to only include no_instructor_requests when test data more accurate
+        # (students currently request courses they've already passed and also request courses they cannot take)
+        return render_template('request-report.html', reject_dict=reject_dict, valid_requests=valid_requests,
+                               no_instructor_requests=no_instructor_requests + missing_prereqs)
     else:
         with db.engine.begin() as connection:
 
@@ -310,108 +328,82 @@ def request_report():
             # maps student_id to valid course request course_ids
             courses_requested = {}
 
-            # hacky workaround for only modifying database (updating records and weka data) on POST request
+            # hacky workaround for only modifying database (updating records and predictive model data) on POST request
             for student_id, course_id in request.form.items():
                 if student_id != 'csrf_token':
-                    # insert records for all valid requests
-                    record = {'user_id': current_user.id, 'student_id': student_id, 'course_id': course_id,
-                              'grade': get_random_grade(), 'year': current_year, 'term': current_user.current_term}
-                    records.append(record)
+                    student_id = int(student_id)
+                    course_id = int(course_id)
+                    # valid requests have positive ids, invalid requests have negative ids
+                    if student_id > 0:
+                        # insert records for all valid requests
+                        record = {'user_id': current_user.id, 'student_id': student_id, 'course_id': course_id,
+                                  'grade': get_random_grade(), 'year': current_year, 'term': current_user.current_term}
+                        records.append(record)
 
                     if student_id in courses_requested:
-                        courses_requested[student_id].append(int(course_id))
+                        courses_requested[abs(student_id)].append(abs(course_id))
                     else:
-                        courses_requested[student_id] = [int(course_id)]
+                        courses_requested[abs(student_id)] = [abs(course_id)]
 
             if records:
                 connection.execute(AcademicRecord.__table__.insert(), records)
 
-            # fetch weka data for update
-            data = WekaData.query \
-                .filter_by(user_id=current_user.id).first()
+            # fetch predictive model for update
+            data = RequestPrediction.query.filter_by(user_id=current_user.id).first()
 
-            jvm.start(max_heap_size='512m')
-
-            weka_data_filepath = os.path.join(os.path.dirname(__file__), 'tmp/{}'.format(current_user.id))
-
-            if data.data is None:
+            if data.model is None:
                 attributes = Course.query \
                     .with_entities(Course.id) \
-                    .filter_by(user_id=current_user.id).order_by(Course.id).all()
+                    .filter_by(user_id=current_user.id).order_by(Course.id)
 
-                # maps course id to position of "Took" attribute in weka_attributes
-                attribute_map = {}
+                attributes = [attribute[0] for attribute in attributes]
 
-                # stores weka attributes (columns)
-                weka_attributes = []
-                for i, attribute in enumerate(attributes):
-                    attribute_map[attribute[0]] = len(weka_attributes)
-                    weka_attributes.append(
-                        Attribute.create_nominal('Took course {}'.format(attribute[0]), labels=['y']))
-                    weka_attributes.append(
-                        Attribute.create_nominal('Requested course {}'.format(attribute[0]), labels=['y']))
+                from sklearn.preprocessing import MultiLabelBinarizer
+                mlb = MultiLabelBinarizer(classes=attributes, sparse_output=True).fit(None)
 
-                connection.execute(sqlalchemy.text(
-                    'update Weka_Data set attribute_map = :attribute_map where user_id = :user_id'),
-                    attribute_map=pickle.dumps(attribute_map), user_id=current_user.id)
+                # TODO: parameter tuning
+                # identity activation as input is binary
+                # very large regularization to punish overcomplex models
+                # (true relationship is likely fairly simple direct prereq check)
+                model = MLPClassifier(activation='identity', alpha=100)
 
-                instances = Instances.create_instances(
-                    name="my_numpy_data",
-                    atts=weka_attributes,
-                    capacity=len(courses_requested.keys())
-                )
-                associator = Associator(classname='weka.associations.FPGrowth',
-                                        options=['-S'])
+                query = sqlalchemy.text("""update Request_Prediction set model = :model, mlb = :mlb
+                                                            where user_id = :user_id""")
+                connection.execute(query, model=pickle.dumps(model), mlb=pickle.dumps(mlb), user_id=current_user.id)
 
             else:
-                # TODO: convert to serialization as java objects can't be pickled
-                with open(weka_data_filepath, 'wb+') as f:
-                    f.write(data.data)
-                    instances, associator = serialization.read_all(weka_data_filepath)
-                    instances = Instances(jobject=instances)
-                    associator = Associator(jobject=associator)
-                attribute_map = pickle.loads(data.attribute_map)
+                model = data.model
+                mlb = data.mlb
 
-            # adds rows to weka input for each student
-            for student_id, course_ids in sorted(courses_requested.items(), key=lambda item: item[0]):
+            X = []
+            y = []
+
+            # TODO: fix so takes into account invalid requests (some requests failed just because no instructor)
+            # creates input X = courses taken
+            # creates output y = courses requested
+            for student_id, course_ids in courses_requested.items():
                 courses_taken = AcademicRecord.query \
                     .with_entities(AcademicRecord.course_id) \
-                    .filter(
-                    AcademicRecord.user_id == current_user.id and AcademicRecord.student_id == student_id
-                    and AcademicRecord.grade != 'D' and AcademicRecord.grade != 'F'
-                ).all()
+                    .filter(and_(
+                    AcademicRecord.user_id == current_user.id, AcademicRecord.student_id == student_id,
+                    AcademicRecord.grade not in ('D', 'F')
+                ))
+                courses_taken = [course[0] for course in courses_taken]
 
-                # instance values for each student
-                # NOTE: values are indices of label in nominal attributes
-                # missing values are treated as not belonging to the item set for FPGrowth
-                instance_values = np.full(instances.num_attributes, fill_value=Instance.missing_value())
+                X.append(courses_taken)
+                y.append(course_ids)
 
-                # adds courses taken by student to instance_values
-                for i, row in enumerate(courses_taken):
-                    course_id = row[0]
-                    ind = attribute_map[course_id]
-                    instance_values[ind] = 0
+            X = mlb.transform(X)
+            y = mlb.transform(y)
 
-                # adds courses requested by student to instance_values
-                for i, course_id in enumerate(course_ids):
-                    ind = attribute_map[course_id] + 1
-                    instance_values[ind] = 0
+            if X.shape[0] > 0:
+                try:
+                    model.partial_fit(X, y)
+                except ValueError:
+                    model.fit(X, y)
 
-                inst = Instance.create_instance(instance_values)
-                instances.add_instance(inst)
-
-            # TODO: fiddle with options
-            if instances.num_instances > 0:
-                associator.build_associations(instances)
-                print(associator)
-
-                # write associator info to file and then store in database
-                with open(weka_data_filepath, 'wb+') as f:
-                    serialization.write_all(weka_data_filepath, [instances, associator])
-                    query = sqlalchemy.text('update Weka_Data set data = :data where user_id = :user_id')
-                    connection.execute(query, user_id=current_user.id, data=f.read())
-
-            jvm.stop()
+                query = sqlalchemy.text("""update Request_Prediction set model = :model where user_id = :user_id""")
+                connection.execute(query, model=pickle.dumps(model), user_id=current_user.id)
 
         current_user.increment_term()
         return redirect(url_for('assign_instructors'))

@@ -1,7 +1,11 @@
 import csv
+import pickle
+from collections import Counter
 
+import numpy as np
 from flask_login import UserMixin, current_user
-from sqlalchemy import UniqueConstraint, ForeignKeyConstraint, PrimaryKeyConstraint, text, Index
+from sqlalchemy import UniqueConstraint, ForeignKeyConstraint, PrimaryKeyConstraint, text, Index, and_
+from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.types import *
 
 from app import db, bcrypt
@@ -65,6 +69,7 @@ class Account(db.Model, UserMixin):
         self.current_term = 0
         db.session.query(Instructor).filter_by(user_id=self.id).update({'course_id': None})
         db.session.query(AcademicRecord).filter_by(user_id=self.id).delete()
+        db.session.query(RequestPrediction).filter_by(user_id=self.id).update({'_model': None, '_mlb': None})
         db.session.commit()
 
     def save_path(self, path):
@@ -186,6 +191,16 @@ class Student(db.Model, MyMixin):
             temp_program_id = None if row[4] == '0' else row[4]
             yield {'id': row[0], 'name': row[1], 'address': row[2], 'phone': row[3], 'program_id': temp_program_id}
 
+    # returns course_ids of
+    @hybrid_property
+    def courses_passed(self):
+        return [row[0] for row in
+                AcademicRecord.query.with_entities(AcademicRecord.course_id).filter(
+                    and_(AcademicRecord.user_id == self.user_id,
+                         AcademicRecord.student_id == self.id,
+                         AcademicRecord.grade not in ('D', 'F')
+                         ))]
+
 
 # NOTE: table name is Academic_Record
 class AcademicRecord(db.Model, MyMixin):
@@ -256,10 +271,62 @@ class Request(db.Model, MyMixin):
 
 # TODO: consider converting to storage in filestore such as AWS S3
 # NOTE: separate table from Account to make later refactoring from user_id to simulation_id (to allow multiple simulations) easier
-class WekaData(db.Model):
+class RequestPrediction(db.Model):
     user_id = db.Column(Integer, nullable=False, primary_key=True)
     # stores apriori input
-    data = db.Column(LargeBinary, nullable=True)
-    attribute_map = db.Column(LargeBinary, nullable=True)
+    _model = db.Column('model', LargeBinary, nullable=True)
+    _mlb = db.Column('mlb', LargeBinary, nullable=True)
     ForeignKeyConstraint([user_id], [Account.id], ondelete='CASCADE')
 
+    # X is list of lists, where each list contains the course_ids that a student has taken
+    # returns matrix where each row contains the course ids of the top k requests predicted for the corresponding row in X
+    def predict_requests_by_course_ids(self, X, k=5):
+        X = self.mlb.transform(X)
+        # prediction = self.model.predict(X)
+
+        course_probs = self.model.predict_proba(X)
+        best_indices = course_probs.argsort(axis=1)[:, ::-1][:, :k]
+        best_probs = np.take(course_probs, best_indices)
+
+        return np.take(self.mlb.classes, best_indices), best_probs
+
+
+    def predict_student_requests(self, student):
+        X = [[course_id for course_id in student.courses_passed]]
+        return self.predict_requests_by_course_ids(X)
+
+    def predict_students_requests(self, students):
+        X = [[course_id for course_id in student.courses_passed] for student in students]
+        return self.predict_requests_by_course_ids(X)
+
+    def format_predictions(self, predictions):
+        pass
+
+    def consolidate_predictions(self, predictions, probs):
+        output = Counter()
+
+        # TODO: consider using only predictions with probs above threshold
+        for i, course_id in enumerate(predictions.flatten()):
+            output[course_id] += 1
+
+        return output
+
+    @hybrid_property
+    def model(self):
+        if self._model is None:
+            return None
+        return pickle.loads(self._model)
+
+    @model.setter
+    def model(self, value):
+        self._model = pickle.dumps(value)
+
+    @hybrid_property
+    def mlb(self):
+        if self._mlb is None:
+            return None
+        return pickle.loads(self._mlb)
+
+    @mlb.setter
+    def mlb(self, value):
+        self._mlb = pickle.dumps(value)

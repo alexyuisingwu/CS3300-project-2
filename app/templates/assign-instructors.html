@@ -18,6 +18,31 @@
 <h1>{{get_term_name(current_user.current_term)}}</h1>
 <h3>Assign Courses</h3>
 
+{% if prediction_output_str %}
+<div id="errors" class="alert alert-info" role="alert">
+    <p>
+        <strong>Info!</strong><br><br>
+        We have predicted the courses students are likely to request based on the requests other
+        students with similar academic histories have taken, highlighted in blue. Our system predicts the top 5 courses
+        each student is likely to request, and suggests courses within the top 5 for any students.
+        Our predictive model updates after evey term, so it may be inaccurate at first.
+        However, It should improve as more data is analyzed!
+    </p>
+</div>
+<div class="panel panel-default">
+    <div class="panel-heading">
+        <h3 class="panel-title">
+            <a data-toggle="collapse" href="#collapse-body">Predictive Model Output Details</a>
+        </h3>
+    </div>
+    <div id="collapse-body" class="panel-collapse collapse">
+        <div class="panel-body">
+            <pre>{{ prediction_output_str }}</pre>
+        </div>
+    </div>
+</div>
+{% endif %}
+
 <form id="assign-instructors" action="/assign-instructors" method="POST">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/> <br>
     <table class="table table-striped">
@@ -34,7 +59,7 @@
         </thead>
         <tbody>
         {% for course in courses %}
-        <tr>
+        <tr {% if course.id in prediction_counter.keys() %} class="info" {% endif %}>
             <td>{{ course.id }}</td>
             <td>{{ course.name }}</td>
             <td>${{ course.cost }}</td>

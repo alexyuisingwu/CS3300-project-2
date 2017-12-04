@@ -87,6 +87,11 @@
     {% for row in valid_requests %}
         <input type="hidden" name="{{row.student_id}}" value="{{row.course_id}}">
     {% endfor %}
+
+    {% for row in no_instructor_requests %}
+        <input type="hidden" name="{{-row.student_id}}" value="{{-row.course_id}}">
+    {% endfor %}
+
     <button class="btn btn-default" type="submit" id="next-term-button"> Move on to Next Term </button>
 </form>
 
