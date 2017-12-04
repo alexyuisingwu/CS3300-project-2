@@ -59,7 +59,7 @@
         </thead>
         <tbody>
         {% for course in courses %}
-        <tr {% if course.id in prediction_counter.keys() %} class="info" {% endif %}>
+        <tr {% if prediction_counter and course.id in prediction_counter.keys() %} class="info" {% endif %}>
             <td>{{ course.id }}</td>
             <td>{{ course.name }}</td>
             <td>${{ course.cost }}</td>
