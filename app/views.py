@@ -1,7 +1,7 @@
-import pickle
-import numpy as np
 import os
+import pickle
 
+import numpy as np
 import sqlalchemy
 import weka.core.jvm as jvm
 from flask import url_for, redirect, render_template, request, json, abort
@@ -64,7 +64,6 @@ def register():
 
             # TODO: consider adding option to choose test case in UI
             import_csvs_by_filepath()
-
 
             return redirect(url_for('index'))
     return render_template('register.html', form=form)
@@ -328,19 +327,17 @@ def request_report():
                 connection.execute(AcademicRecord.__table__.insert(), records)
 
             # fetch weka data for update
-            data = WekaData.query\
-                .with_entities(WekaData.data)\
-                .filter_by(user_id=current_user.id).scalar()
+            data = WekaData.query \
+                .filter_by(user_id=current_user.id).first()
 
             jvm.start(max_heap_size='512m')
 
             weka_data_filepath = os.path.join(os.path.dirname(__file__), 'tmp/{}'.format(current_user.id))
 
-            if data is None:
+            if data.data is None:
                 attributes = Course.query \
                     .with_entities(Course.id) \
                     .filter_by(user_id=current_user.id).order_by(Course.id).all()
-
 
                 # maps course id to position of "Took" attribute in weka_attributes
                 attribute_map = {}
@@ -349,30 +346,40 @@ def request_report():
                 weka_attributes = []
                 for i, attribute in enumerate(attributes):
                     attribute_map[attribute[0]] = len(weka_attributes)
-                    weka_attributes.append(Attribute.create_nominal('Took course {}'.format(attribute[0]), labels=['y']))
-                    weka_attributes.append(Attribute.create_nominal('Requested course {}'.format(attribute[0]), labels=['y']))
+                    weka_attributes.append(
+                        Attribute.create_nominal('Took course {}'.format(attribute[0]), labels=['y']))
+                    weka_attributes.append(
+                        Attribute.create_nominal('Requested course {}'.format(attribute[0]), labels=['y']))
+
+                connection.execute(sqlalchemy.text(
+                    'update Weka_Data set attribute_map = :attribute_map where user_id = :user_id'),
+                    attribute_map=pickle.dumps(attribute_map), user_id=current_user.id)
 
                 instances = Instances.create_instances(
                     name="my_numpy_data",
                     atts=weka_attributes,
                     capacity=len(courses_requested.keys())
                 )
+                associator = Associator(classname='weka.associations.FPGrowth',
+                                        options=['-S'])
+
             else:
                 # TODO: convert to serialization as java objects can't be pickled
                 with open(weka_data_filepath, 'wb+') as f:
-                    f.write(data)
+                    f.write(data.data)
                     instances, associator = serialization.read_all(weka_data_filepath)
                     instances = Instances(jobject=instances)
                     associator = Associator(jobject=associator)
+                attribute_map = pickle.loads(data.attribute_map)
 
             # adds rows to weka input for each student
             for student_id, course_ids in sorted(courses_requested.items(), key=lambda item: item[0]):
                 courses_taken = AcademicRecord.query \
                     .with_entities(AcademicRecord.course_id) \
                     .filter(
-                            AcademicRecord.user_id == current_user.id and AcademicRecord.student_id == student_id
-                            and AcademicRecord.grade != 'D' and AcademicRecord.grade != 'F'
-                    ).all()
+                    AcademicRecord.user_id == current_user.id and AcademicRecord.student_id == student_id
+                    and AcademicRecord.grade != 'D' and AcademicRecord.grade != 'F'
+                ).all()
 
                 # instance values for each student
                 # NOTE: values are indices of label in nominal attributes
@@ -393,23 +400,16 @@ def request_report():
                 inst = Instance.create_instance(instance_values)
                 instances.add_instance(inst)
 
-
-            print(instances)
             # TODO: fiddle with options
+            if instances.num_instances > 0:
+                associator.build_associations(instances)
+                print(associator)
 
-            associator = Associator(classname='weka.associations.FPGrowth', options=['-M', '0.00000001', '1', '-C', '0.00001', '-S'])
-            associator.build_associations(instances)
-
-            print(associator)
-
-
-            # create empty file
-
-            # TODO: modify to create if not exists
-            with open(weka_data_filepath, 'wb+') as f:
-                serialization.write_all(weka_data_filepath, [instances, associator])
-                query = sqlalchemy.text('update Weka_Data set data = :data where user_id = :user_id')
-                connection.execute(query, user_id=current_user.id, data=f.read())
+                # write associator info to file and then store in database
+                with open(weka_data_filepath, 'wb+') as f:
+                    serialization.write_all(weka_data_filepath, [instances, associator])
+                    query = sqlalchemy.text('update Weka_Data set data = :data where user_id = :user_id')
+                    connection.execute(query, user_id=current_user.id, data=f.read())
 
             jvm.stop()
 

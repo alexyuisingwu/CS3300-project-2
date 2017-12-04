@@ -259,6 +259,7 @@ class Request(db.Model, MyMixin):
 class WekaData(db.Model):
     user_id = db.Column(Integer, nullable=False, primary_key=True)
     # stores apriori input
-    data = db.Column(LargeBinary, nullable=True, server_default=text('NULL'))
+    data = db.Column(LargeBinary, nullable=True)
+    attribute_map = db.Column(LargeBinary, nullable=True)
     ForeignKeyConstraint([user_id], [Account.id], ondelete='CASCADE')
 
