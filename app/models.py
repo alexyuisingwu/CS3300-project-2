@@ -256,7 +256,7 @@ class Request(db.Model, MyMixin):
 
 # TODO: consider converting to storage in filestore such as AWS S3
 # NOTE: separate table from Account to make later refactoring from user_id to simulation_id (to allow multiple simulations) easier
-class AprioriData(db.Model):
+class WekaData(db.Model):
     user_id = db.Column(Integer, nullable=False, primary_key=True)
     # stores apriori input
     data = db.Column(LargeBinary, nullable=True, server_default=text('NULL'))

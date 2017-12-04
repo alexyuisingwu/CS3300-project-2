@@ -1,5 +1,6 @@
 import pickle
 import numpy as np
+import os
 
 import sqlalchemy
 import weka.core.jvm as jvm
@@ -11,7 +12,7 @@ from weka.core.dataset import Attribute, Instance, Instances
 
 from app import app, db
 from app.forms import RegistrationForm, LoginForm
-from app.models import Account, Course, Instructor, AcademicRecord, AprioriData
+from app.models import Account, Course, Instructor, AcademicRecord, WekaData
 from app.utils.database_utils import import_csv_by_file, import_csvs_by_filepath
 from app.utils.utils import is_safe_url, get_random_grade, get_term_year
 
@@ -40,6 +41,7 @@ def index():
             return redirect(path)
 
 
+# TODO: refactor to use transaction
 @app.route('/register', methods=['GET', 'POST'])
 def register():
     form = RegistrationForm()
@@ -56,6 +58,10 @@ def register():
 
             user = Account.query.filter_by(username=username).first()
             login_user(user)
+
+            query = sqlalchemy.text('insert into Weka_Data (user_id) values (:user_id)')
+            db.engine.execute(query.execution_options(autocommit=True), user_id=current_user.id)
+
             # TODO: consider adding option to choose test case in UI
             import_csvs_by_filepath()
 
@@ -305,7 +311,7 @@ def request_report():
             # maps student_id to valid course request course_ids
             courses_requested = {}
 
-            # hacky workaround for only modifying database (updating records and apriori data) on POST request
+            # hacky workaround for only modifying database (updating records and weka data) on POST request
             for student_id, course_id in request.form.items():
                 if student_id != 'csrf_token':
                     # insert records for all valid requests
@@ -321,12 +327,14 @@ def request_report():
             if records:
                 connection.execute(AcademicRecord.__table__.insert(), records)
 
-            # fetch apriori data for update
-            data = AprioriData.query\
-                .with_entities(AprioriData.data)\
-                .filter_by(user_id=current_user.id).first()
+            # fetch weka data for update
+            data = WekaData.query\
+                .with_entities(WekaData.data)\
+                .filter_by(user_id=current_user.id).scalar()
 
-            jvm.start(max_heap_size='2048m')
+            jvm.start(max_heap_size='512m')
+
+            weka_data_filepath = os.path.join(os.path.dirname(__file__), 'tmp/{}'.format(current_user.id))
 
             if data is None:
                 attributes = Course.query \
@@ -336,13 +344,13 @@ def request_report():
 
                 # maps course id to position of "Took" attribute in weka_attributes
                 attribute_map = {}
+
                 # stores weka attributes (columns)
                 weka_attributes = []
                 for i, attribute in enumerate(attributes):
                     attribute_map[attribute[0]] = len(weka_attributes)
-                    weka_attributes.append(Attribute.create_nominal('Took {}'.format(attribute[0]), labels=['0', '1']))
-                    weka_attributes.append(
-                        Attribute.create_nominal('Requested {}'.format(attribute[0]), labels=['0', '1']))
+                    weka_attributes.append(Attribute.create_nominal('Took course {}'.format(attribute[0]), labels=['y']))
+                    weka_attributes.append(Attribute.create_nominal('Requested course {}'.format(attribute[0]), labels=['y']))
 
                 instances = Instances.create_instances(
                     name="my_numpy_data",
@@ -350,48 +358,59 @@ def request_report():
                     capacity=len(courses_requested.keys())
                 )
             else:
-                attribute_map, weka_attributes, instances = pickle.loads(data)
-
-
+                # TODO: convert to serialization as java objects can't be pickled
+                with open(weka_data_filepath, 'wb+') as f:
+                    f.write(data)
+                    instances, associator = serialization.read_all(weka_data_filepath)
+                    instances = Instances(jobject=instances)
+                    associator = Associator(jobject=associator)
 
             # adds rows to weka input for each student
             for student_id, course_ids in sorted(courses_requested.items(), key=lambda item: item[0]):
                 courses_taken = AcademicRecord.query \
                     .with_entities(AcademicRecord.course_id) \
                     .filter(
-                    AcademicRecord.user_id == current_user.id and AcademicRecord.student_id == student_id
-                    and AcademicRecord.grade != 'D' and AcademicRecord.grade != 'F'
-                ).all()
+                            AcademicRecord.user_id == current_user.id and AcademicRecord.student_id == student_id
+                            and AcademicRecord.grade != 'D' and AcademicRecord.grade != 'F'
+                    ).all()
 
                 # instance values for each student
                 # NOTE: values are indices of label in nominal attributes
-                instance_values = np.zeros(len(weka_attributes))
+                # missing values are treated as not belonging to the item set for FPGrowth
+                instance_values = np.full(instances.num_attributes, fill_value=Instance.missing_value())
 
-                # sets courses as taken by student
+                # adds courses taken by student to instance_values
                 for i, row in enumerate(courses_taken):
                     course_id = row[0]
                     ind = attribute_map[course_id]
-                    instance_values[ind] = 1
+                    instance_values[ind] = 0
 
-                # sets courses as requested by student
+                # adds courses requested by student to instance_values
                 for i, course_id in enumerate(course_ids):
                     ind = attribute_map[course_id] + 1
-                    instance_values[ind] = 1
+                    instance_values[ind] = 0
 
                 inst = Instance.create_instance(instance_values)
                 instances.add_instance(inst)
 
-            instances.compactify()
+
+            print(instances)
             # TODO: fiddle with options
-            associator = Associator(classname='weka.associations.Apriori', options=["-N", "9", "-I"])
+
+            associator = Associator(classname='weka.associations.FPGrowth', options=['-M', '0.00000001', '1', '-C', '0.00001', '-S'])
             associator.build_associations(instances)
+
             print(associator)
-            pass
-            # serialization.write_all('tmp/' + str(current_user.id) + '/attributes', [weka_attributes, instances])
-            # weka_attributes = serialization.read('tmp/' + str(current_user.id))
-            # data = pickle.dumps((attribute_map, weka_attributes, instances))
-            # query = sqlalchemy.text('update AprioriData set data = :data where user_id = :user_id')
-            # connection.execute(query, user_id=current_user.id, data=data)
+
+
+            # create empty file
+
+            # TODO: modify to create if not exists
+            with open(weka_data_filepath, 'wb+') as f:
+                serialization.write_all(weka_data_filepath, [instances, associator])
+                query = sqlalchemy.text('update Weka_Data set data = :data where user_id = :user_id')
+                connection.execute(query, user_id=current_user.id, data=f.read())
+
             jvm.stop()
 
         current_user.increment_term()
