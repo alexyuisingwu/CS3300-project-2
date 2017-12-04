@@ -71,9 +71,10 @@ class Account(db.Model, UserMixin):
         self.current_path = path
         db.session.commit()
 
+
 class Course(db.Model, MyMixin):
-    user_id = db.Column(Integer)
-    id = db.Column(Integer)
+    user_id = db.Column(Integer, nullable=False)
+    id = db.Column(Integer, nullable=False)
     name = db.Column(String(255), nullable=False)
     cost = db.Column(Integer, nullable=False)
     PrimaryKeyConstraint(user_id, id)
@@ -105,7 +106,7 @@ class Course(db.Model, MyMixin):
 
 
 class Prereq(db.Model, MyMixin):
-    user_id = db.Column(Integer)
+    user_id = db.Column(Integer, nullable=False)
     course_id = db.Column(Integer, nullable=False)
     prereq_id = db.Column(Integer, nullable=False)
     ForeignKeyConstraint([user_id, course_id], [Course.user_id, Course.id], deferrable=True, initially="DEFERRED",
@@ -124,8 +125,8 @@ class Prereq(db.Model, MyMixin):
 
 
 class Instructor(db.Model, MyMixin):
-    user_id = db.Column(Integer)
-    id = db.Column(Integer)
+    user_id = db.Column(Integer, nullable=False)
+    id = db.Column(Integer, nullable=False)
     name = db.Column(String(255), nullable=False)
     office_hours = db.Column(String(255), nullable=False)
     email = db.Column(String(255), nullable=False)
@@ -148,8 +149,8 @@ class Instructor(db.Model, MyMixin):
 
 
 class Program(db.Model, MyMixin):
-    user_id = db.Column(Integer)
-    id = db.Column(Integer)
+    user_id = db.Column(Integer, nullable=False)
+    id = db.Column(Integer, nullable=False)
     name = db.Column(String(255), nullable=False)
     PrimaryKeyConstraint(user_id, id)
     UniqueConstraint(user_id, name)
@@ -165,8 +166,8 @@ class Program(db.Model, MyMixin):
 
 
 class Student(db.Model, MyMixin):
-    user_id = db.Column(Integer)
-    id = db.Column(Integer)
+    user_id = db.Column(Integer, nullable=False)
+    id = db.Column(Integer, nullable=False)
     name = db.Column(String(255), nullable=False)
     address = db.Column(String(255), nullable=False)
     phone = db.Column(String(15), nullable=False)
@@ -188,7 +189,7 @@ class Student(db.Model, MyMixin):
 
 # NOTE: table name is Academic_Record
 class AcademicRecord(db.Model, MyMixin):
-    user_id = db.Column(Integer)
+    user_id = db.Column(Integer, nullable=False)
     student_id = db.Column(Integer, nullable=False)
     course_id = db.Column(Integer, nullable=False)
     # TODO: consider converting to enum (A, B, C, D, F)
@@ -211,7 +212,7 @@ class AcademicRecord(db.Model, MyMixin):
 
 
 class Listing(db.Model, MyMixin):
-    user_id = db.Column(Integer)
+    user_id = db.Column(Integer, nullable=False)
     program_id = db.Column(Integer, nullable=False)
     course_id = db.Column(Integer, nullable=False)
     PrimaryKeyConstraint(user_id, program_id, course_id)
@@ -226,8 +227,9 @@ class Listing(db.Model, MyMixin):
             yield {'program_id': row[0], 'course_id': row[1]}
 
 
+# TODO: consider adding validation status as field
 class Request(db.Model, MyMixin):
-    user_id = db.Column(Integer)
+    user_id = db.Column(Integer, nullable=False)
     student_id = db.Column(Integer, nullable=False)
     course_id = db.Column(Integer, nullable=False)
     term = db.Column(Integer, nullable=False)
@@ -250,3 +252,13 @@ class Request(db.Model, MyMixin):
     def get_current_requests(cls):
         return db.engine.execute('select * from request where user_id = {} and term = {}'
                                  .format(current_user.id, current_user.current_term)).fetchall()
+
+
+# TODO: consider converting to storage in filestore such as AWS S3
+# NOTE: separate table from Account to make later refactoring from user_id to simulation_id (to allow multiple simulations) easier
+class AprioriData(db.Model):
+    user_id = db.Column(Integer, nullable=False, primary_key=True)
+    # stores apriori input
+    data = db.Column(LargeBinary, nullable=True, server_default=text('NULL'))
+    ForeignKeyConstraint([user_id], [Account.id], ondelete='CASCADE')
+

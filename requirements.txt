@@ -14,3 +14,4 @@ flask-login==0.4.0
 Flask-Bcrypt==0.7.1
 numpy==1.13.3
 flask-bootstrap==3.3.7.1
+python-weka-wrapper3==0.1.3

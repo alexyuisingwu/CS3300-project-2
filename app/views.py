@@ -1,10 +1,17 @@
+import pickle
+import numpy as np
+
 import sqlalchemy
+import weka.core.jvm as jvm
 from flask import url_for, redirect, render_template, request, json, abort
 from flask_login import login_user, logout_user, login_required, current_user
+from weka.associations import Associator
+from weka.core import serialization
+from weka.core.dataset import Attribute, Instance, Instances
 
 from app import app, db
 from app.forms import RegistrationForm, LoginForm
-from app.models import Account, Course, Instructor, AcademicRecord
+from app.models import Account, Course, Instructor, AcademicRecord, AprioriData
 from app.utils.database_utils import import_csv_by_file, import_csvs_by_filepath
 from app.utils.utils import is_safe_url, get_random_grade, get_term_year
 
@@ -37,6 +44,7 @@ def index():
 def register():
     form = RegistrationForm()
     if request.method == 'POST':
+        # TODO: enclose in transaction
         if form.validate_on_submit():
             username = request.form['username']
             email = request.form['email']
@@ -50,6 +58,7 @@ def register():
             login_user(user)
             # TODO: consider adding option to choose test case in UI
             import_csvs_by_filepath()
+
 
             return redirect(url_for('index'))
     return render_template('register.html', form=form)
@@ -293,7 +302,10 @@ def request_report():
             records = []
             current_year = get_term_year(current_user.current_term)
 
-            # hacky workaround for only modifying database (updating records) on POST request
+            # maps student_id to valid course request course_ids
+            courses_requested = {}
+
+            # hacky workaround for only modifying database (updating records and apriori data) on POST request
             for student_id, course_id in request.form.items():
                 if student_id != 'csrf_token':
                     # insert records for all valid requests
@@ -301,8 +313,86 @@ def request_report():
                               'grade': get_random_grade(), 'year': current_year, 'term': current_user.current_term}
                     records.append(record)
 
+                    if student_id in courses_requested:
+                        courses_requested[student_id].append(int(course_id))
+                    else:
+                        courses_requested[student_id] = [int(course_id)]
+
             if records:
                 connection.execute(AcademicRecord.__table__.insert(), records)
+
+            # fetch apriori data for update
+            data = AprioriData.query\
+                .with_entities(AprioriData.data)\
+                .filter_by(user_id=current_user.id).first()
+
+            jvm.start(max_heap_size='2048m')
+
+            if data is None:
+                attributes = Course.query \
+                    .with_entities(Course.id) \
+                    .filter_by(user_id=current_user.id).order_by(Course.id).all()
+
+
+                # maps course id to position of "Took" attribute in weka_attributes
+                attribute_map = {}
+                # stores weka attributes (columns)
+                weka_attributes = []
+                for i, attribute in enumerate(attributes):
+                    attribute_map[attribute[0]] = len(weka_attributes)
+                    weka_attributes.append(Attribute.create_nominal('Took {}'.format(attribute[0]), labels=['0', '1']))
+                    weka_attributes.append(
+                        Attribute.create_nominal('Requested {}'.format(attribute[0]), labels=['0', '1']))
+
+                instances = Instances.create_instances(
+                    name="my_numpy_data",
+                    atts=weka_attributes,
+                    capacity=len(courses_requested.keys())
+                )
+            else:
+                attribute_map, weka_attributes, instances = pickle.loads(data)
+
+
+
+            # adds rows to weka input for each student
+            for student_id, course_ids in sorted(courses_requested.items(), key=lambda item: item[0]):
+                courses_taken = AcademicRecord.query \
+                    .with_entities(AcademicRecord.course_id) \
+                    .filter(
+                    AcademicRecord.user_id == current_user.id and AcademicRecord.student_id == student_id
+                    and AcademicRecord.grade != 'D' and AcademicRecord.grade != 'F'
+                ).all()
+
+                # instance values for each student
+                # NOTE: values are indices of label in nominal attributes
+                instance_values = np.zeros(len(weka_attributes))
+
+                # sets courses as taken by student
+                for i, row in enumerate(courses_taken):
+                    course_id = row[0]
+                    ind = attribute_map[course_id]
+                    instance_values[ind] = 1
+
+                # sets courses as requested by student
+                for i, course_id in enumerate(course_ids):
+                    ind = attribute_map[course_id] + 1
+                    instance_values[ind] = 1
+
+                inst = Instance.create_instance(instance_values)
+                instances.add_instance(inst)
+
+            instances.compactify()
+            # TODO: fiddle with options
+            associator = Associator(classname='weka.associations.Apriori', options=["-N", "9", "-I"])
+            associator.build_associations(instances)
+            print(associator)
+            pass
+            # serialization.write_all('tmp/' + str(current_user.id) + '/attributes', [weka_attributes, instances])
+            # weka_attributes = serialization.read('tmp/' + str(current_user.id))
+            # data = pickle.dumps((attribute_map, weka_attributes, instances))
+            # query = sqlalchemy.text('update AprioriData set data = :data where user_id = :user_id')
+            # connection.execute(query, user_id=current_user.id, data=data)
+            jvm.stop()
 
         current_user.increment_term()
         return redirect(url_for('assign_instructors'))
@@ -342,7 +432,9 @@ def restart_simulation():
     current_user.restart_simulation()
     return redirect(url_for('assign_instructors'))
 
-@app.route('/success-management', methods=['GET','POST'])
+
+# TODO: move queries into helper functions
+@app.route('/success-management', methods=['GET', 'POST'])
 @login_required
 def success_management():
     if request.method == 'GET':
@@ -439,7 +531,8 @@ def success_management():
                                       request.course_id; 
             """)
             valid_requests_count = connection.execute(valid_query,
-                                                term=current_user.current_term, user_id=current_user.id).fetchall()
+                                                      term=current_user.current_term,
+                                                      user_id=current_user.id).fetchall()
 
             cost_query = sqlalchemy.text("""SELECT SUM(course_cost) 
                                 FROM (SELECT course.cost as course_cost
@@ -475,7 +568,8 @@ def success_management():
                                     WHERE  request.user_id = :user_id 
                                    AND request.term = :term 
             """)
-            total_requests_count = connection.execute(total_query, term=current_user.current_term, user_id=current_user.id).fetchall();
+            total_requests_count = connection.execute(total_query, term=current_user.current_term,
+                                                      user_id=current_user.id).fetchall();
 
             reject_dict = {}
 
@@ -502,7 +596,14 @@ def success_management():
             connection.execute('drop table if exists request_missing_prereq')
 
             labels = ["Valid Request", "Invalid Request"]
-            values = [int(valid_requests_count[0][0]), int(total_requests_count[0][0]) - int(valid_requests_count[0][0])]
+            values = [int(valid_requests_count[0][0]),
+                      int(total_requests_count[0][0]) - int(valid_requests_count[0][0])]
 
+    return render_template('success-management.html', count=valid_requests_count, total=total_requests_count,
+                           label=labels, values=values, cost=cost)
 
-    return render_template('success-management.html', count=valid_requests_count, total=total_requests_count, label=labels, values=values, cost=cost)
+# TODO: use apriori to predict student requests
+# TODO: consider either: (pairing each request with all requests in previous term) OR
+# TODO: (column for each course and whether it has been taken, output columns of each course and whether the student takes it)
+
+# NOTE: problem with course approach is number of courses not known until file upload (runtime), and potentially different per user
