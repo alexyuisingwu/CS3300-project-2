@@ -286,7 +286,7 @@ class RequestPrediction(db.Model):
         probs = self.model.predict_proba(X)
         expected_number_of_requests = np.sum(probs, axis=0)
         num_instructors = db.engine.execute(
-            'select count(*) from Instructor where user_id = :user_id', user_id=current_user.id).scalar()
+            text('select count(*) from Instructor where user_id = :user_id'), user_id=current_user.id).scalar()
         top_requests_indices = np.argsort(expected_number_of_requests)[::-1][:num_instructors]
 
         if return_detailed_stats:
