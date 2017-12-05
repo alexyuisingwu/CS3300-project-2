@@ -318,7 +318,7 @@ def request_report():
         # TODO: consider changing to only include no_instructor_requests when test data more accurate
         # (students currently request courses they've already passed and also request courses they cannot take)
         return render_template('request-report.html', reject_dict=reject_dict, valid_requests=valid_requests,
-                               no_instructor_requests=no_instructor_requests + missing_prereqs)
+                               no_instructor_requests=no_instructor_requests)
     else:
         with db.engine.begin() as connection:
 
@@ -361,13 +361,15 @@ def request_report():
                 from sklearn.preprocessing import MultiLabelBinarizer
                 mlb = MultiLabelBinarizer(classes=attributes, sparse_output=True).fit(None)
 
+                # TODO: consider filtering out suggestions for classes the student can't take due to prereqs
+                # TODO: consider only displaying requests student can take with their prereqs on switch assignment page
                 # TODO: parameter tuning
                 # identity activation as input is binary
                 # very large regularization to punish overcomplex models
                 # (true relationship is likely fairly simple direct prereq check)
 
                 # hidden layer should be between size of input and output layers
-                model = MLPClassifier(activation='identity', solver='sgd', hidden_layer_sizes=(len(attributes),))
+                model = MLPClassifier(solver='sgd', hidden_layer_sizes=(len(attributes), len(attributes)))
 
                 query = sqlalchemy.text("""update Request_Prediction set model = :model, mlb = :mlb
                                                             where user_id = :user_id""")
