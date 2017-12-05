@@ -15,6 +15,7 @@ from app.utils.utils import is_safe_url, get_random_grade, get_term_year
 EXCLUDED_PATHS_FOR_SAVING = {'/', '/logout', '/academic_records', 'success-management'}
 
 
+# TODO: resume simulation navbar button on non-simulation pages
 # saves current page of user to restore progress after logout
 @app.url_value_preprocessor
 def save_path(endpoint, values):
@@ -111,20 +112,14 @@ def assign_instructors():
         request_prediction = RequestPrediction.query.filter_by(user_id=current_user.id).first()
 
         if request_prediction.model is not None:
-            students = Student.query.filter_by(user_id=current_user.id)
-            predictions, probs = request_prediction.predict_students_requests(students)
-            prediction_counter = request_prediction.consolidate_predictions(predictions, probs)
-
-            prediction_output_str = 'The ids of the courses most likely to be requested are: {}\n\n' \
-                .format(list(prediction_counter.keys()))
-
-            for i, student in enumerate(students):
-                prediction_output_str += 'The ids of the top 5 courses {} is predicted to request given the classes' \
-                                         ' they have passed are: {} with associated probabilities {}\n' \
-                    .format(student.name, predictions[i], probs[i])
+            students = Student.query.filter_by(user_id=current_user.id).all()
+            (overall_course_ids, expected_fraction_of_requests), (student_course_ids, probs) = \
+                request_prediction.predict_students_requests(students, return_detailed_stats=True)
 
             return render_template('assign-instructors.html', courses=courses, instructors=instructors,
-                                   prediction_output_str=prediction_output_str, prediction_counter=prediction_counter)
+                                   overall_course_ids=overall_course_ids,
+                                   expected_fraction_of_requests=expected_fraction_of_requests,
+                                   student_course_ids=student_course_ids, student_probs=probs, students=students)
 
         return render_template('assign-instructors.html', courses=courses, instructors=instructors)
     else:

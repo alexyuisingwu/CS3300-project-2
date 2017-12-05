@@ -191,7 +191,7 @@ class Student(db.Model, MyMixin):
             temp_program_id = None if row[4] == '0' else row[4]
             yield {'id': row[0], 'name': row[1], 'address': row[2], 'phone': row[3], 'program_id': temp_program_id}
 
-    # returns course_ids of
+    # returns course_ids of courses student has passed
     @hybrid_property
     def courses_passed(self):
         return [row[0] for row in
@@ -278,38 +278,42 @@ class RequestPrediction(db.Model):
     _mlb = db.Column('mlb', LargeBinary, nullable=True)
     ForeignKeyConstraint([user_id], [Account.id], ondelete='CASCADE')
 
+    # TODO: expected value (number of requests for each course, return top k courses where k = number of instructors
     # X is list of lists, where each list contains the course_ids that a student has taken
     # returns matrix where each row contains the course ids of the top k requests predicted for the corresponding row in X
-    def predict_requests_by_course_ids(self, X, k=5):
+    def predict_requests_by_course_ids(self, X, return_detailed_stats=False):
         X = self.mlb.transform(X)
-        # prediction = self.model.predict(X)
+        probs = self.model.predict_proba(X)
+        expected_number_of_requests = np.sum(probs, axis=0)
+        num_instructors = db.engine.execute(
+            'select count(*) from Instructor where user_id = :user_id', user_id=current_user.id).scalar()
+        top_requests_indices = np.argsort(expected_number_of_requests)[::-1][:num_instructors]
 
-        course_probs = self.model.predict_proba(X)
-        best_indices = course_probs.argsort(axis=1)[:, ::-1][:, :k]
-        best_probs = np.take(course_probs, best_indices)
+        if return_detailed_stats:
+            # prob_indices = np.argsort(probs, axis=1)[:, ::-1]
+            # probs = np.take(probs, prob_indices)
+            # course_ids = np.take(self.mlb.classes, prob_indices)
+            top_request_numbers = expected_number_of_requests[top_requests_indices]
 
-        return np.take(self.mlb.classes, best_indices), best_probs
+            return (np.take(self.mlb.classes, top_requests_indices),
+                    top_request_numbers / np.sum(top_request_numbers)), (self.mlb.classes, probs)
+        else:
+            return np.take(self.mlb.classes, top_requests_indices)
 
+    def predict_request_probs(self, X):
+        X = self.mlb.transform(X)
+        return self.model.predict_proba(X)
 
-    def predict_student_requests(self, student):
+    def predict_student_requests(self, student, return_detailed_stats=False):
         X = [[course_id for course_id in student.courses_passed]]
-        return self.predict_requests_by_course_ids(X)
+        return self.predict_requests_by_course_ids(X, return_detailed_stats)
 
-    def predict_students_requests(self, students):
+    def predict_students_requests(self, students, return_detailed_stats=False):
         X = [[course_id for course_id in student.courses_passed] for student in students]
-        return self.predict_requests_by_course_ids(X)
+        return self.predict_requests_by_course_ids(X, return_detailed_stats)
 
     def format_predictions(self, predictions):
         pass
-
-    def consolidate_predictions(self, predictions, probs):
-        output = Counter()
-
-        # TODO: consider using only predictions with probs above threshold
-        for i, course_id in enumerate(predictions.flatten()):
-            output[course_id] += 1
-
-        return output
 
     @hybrid_property
     def model(self):

@@ -18,7 +18,7 @@
 <h1>{{get_term_name(current_user.current_term)}}</h1>
 <h3>Assign Courses</h3>
 
-{% if prediction_output_str %}
+{% if overall_course_ids is defined %}
 <div id="errors" class="alert alert-info" role="alert">
     <p>
         <strong>Info!</strong><br><br>
@@ -37,7 +37,44 @@
     </div>
     <div id="collapse-body" class="panel-collapse collapse">
         <div class="panel-body">
-            <pre>{{ prediction_output_str }}</pre>
+            <table class="table table-striped">
+                <thead>
+                <tr>
+                    <th>Course ID</th>
+                    <th>Predicted Fraction of Requests</th>
+                </tr>
+                </thead>
+                <tbody>
+                {% for course_id in overall_course_ids %}
+                <tr>
+                    <td>{{ course_id }}</td>
+                    <td>{{ expected_fraction_of_requests[loop.index0] }}</td>
+                </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+            <div class="table-responsive">
+            <table class="table table-striped">
+                <thead>
+                <tr>
+                    <th>Student</th>
+                    {% for course_id in student_course_ids %}
+                    <th>{{'Course ' ~ course_id}}</th>
+                    {% endfor %}
+                </tr>
+                </thead>
+                <tbody>
+                {% for row in student_probs %}
+                <tr>
+                    <td>{{ students[loop.index0].name }}</td>
+                    {% for prob in row %}
+                    <td>{{ prob }}</td>
+                    {% endfor %}
+                </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+            </div>
         </div>
     </div>
 </div>
@@ -59,7 +96,7 @@
         </thead>
         <tbody>
         {% for course in courses %}
-        <tr {% if prediction_counter and course.id in prediction_counter.keys() %} class="info" {% endif %}>
+        <tr {% if overall_course_ids is defined and course.id in overall_course_ids %} class="info" {% endif %}>
             <td>{{ course.id }}</td>
             <td>{{ course.name }}</td>
             <td>${{ course.cost }}</td>
