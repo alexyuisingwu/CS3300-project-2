@@ -365,7 +365,9 @@ def request_report():
                 # identity activation as input is binary
                 # very large regularization to punish overcomplex models
                 # (true relationship is likely fairly simple direct prereq check)
-                model = MLPClassifier(activation='identity', solver='sgd', hidden_layer_sizes=(100, 100, 100))
+
+                # hidden layer should be between size of input and output layers
+                model = MLPClassifier(activation='identity', solver='sgd', hidden_layer_sizes=(len(attributes),))
 
                 query = sqlalchemy.text("""update Request_Prediction set model = :model, mlb = :mlb
                                                             where user_id = :user_id""")
