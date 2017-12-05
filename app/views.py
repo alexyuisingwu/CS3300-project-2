@@ -315,7 +315,6 @@ def request_report():
             connection.execute('drop table if exists request_missing_instructor')
             connection.execute('drop table if exists request_missing_prereq')
 
-        # TODO: consider changing to only include no_instructor_requests when test data more accurate
         # (students currently request courses they've already passed and also request courses they cannot take)
         return render_template('request-report.html', reject_dict=reject_dict, valid_requests=valid_requests,
                                no_instructor_requests=no_instructor_requests)
