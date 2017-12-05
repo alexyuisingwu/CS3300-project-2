@@ -12,7 +12,7 @@ from app.models import Account, Course, Instructor, AcademicRecord, RequestPredi
 from app.utils.database_utils import import_csv_by_file, import_csvs_by_filepath
 from app.utils.utils import is_safe_url, get_random_grade, get_term_year
 
-EXCLUDED_PATHS_FOR_SAVING = {'/', '/logout', '/academic_records'}
+EXCLUDED_PATHS_FOR_SAVING = {'/', '/logout', '/academic_records', 'success-management'}
 
 
 # saves current page of user to restore progress after logout
@@ -365,7 +365,7 @@ def request_report():
                 # identity activation as input is binary
                 # very large regularization to punish overcomplex models
                 # (true relationship is likely fairly simple direct prereq check)
-                model = MLPClassifier(activation='identity', alpha=100)
+                model = MLPClassifier(activation='identity', solver='sgd', hidden_layer_sizes=(100, 100, 100))
 
                 query = sqlalchemy.text("""update Request_Prediction set model = :model, mlb = :mlb
                                                             where user_id = :user_id""")

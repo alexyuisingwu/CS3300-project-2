@@ -29,7 +29,7 @@ def import_csv_by_file(file, connection=None):
         get_load_function(file.filename).load_csv_by_file(StringIO(file.read().decode(), newline=None), connection)
 
 
-def import_csvs_by_filepath(rootdir='app/static/testcases/test_case1', exclusions=None):
+def import_csvs_by_filepath(rootdir='app/static/testcases/test_case4', exclusions=None):
     with db.engine.begin() as connection:
         for subdir, dirs, filenames in os.walk(rootdir):
             for filename in filenames:
