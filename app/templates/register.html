@@ -4,6 +4,7 @@
 {% block content %}
 {% from "form-helpers.html" import render_field %}
 <div class="container-fluid">
+    <h2>Register</h2>
     <form action="/register" method="POST">
         {{ form.csrf_token }}
         {{ render_field(form.username) }}
