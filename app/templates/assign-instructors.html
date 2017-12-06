@@ -15,112 +15,115 @@
 
 {% block content %}
 
-<h1>{{get_term_name(current_user.current_term)}}</h1>
-<h3>Assign Courses</h3>
+<div class="container-fluid">
+    <h1>{{get_term_name(current_user.current_term)}}</h1>
+    <h3>Assign Courses</h3>
 
-{% if overall_course_ids is defined %}
-<div id="errors" class="alert alert-info" role="alert">
-    <p>
-        <strong>Info!</strong><br><br>
-        We have predicted the courses students are likely to request based on the requests other
-        students with similar academic histories have taken, highlighted in blue. Our system predicts the top 5 courses
-        each student is likely to request, and suggests courses within the top 5 for any students.
-        Our predictive model updates after evey term, so it may be inaccurate at first.
-        However, It should improve as more data is analyzed!
-    </p>
-</div>
-<div class="panel panel-default">
-    <div class="panel-heading">
-        <h3 class="panel-title">
-            <a data-toggle="collapse" href="#collapse-body">Predictive Model Output Details</a>
-        </h3>
+    {% if overall_course_ids is defined %}
+    <div id="errors" class="alert alert-info" role="alert">
+        <p>
+            <strong>Info!</strong><br><br>
+            We have predicted the courses students are likely to request based on the requests other
+            students with similar academic histories have taken, highlighted in blue. Our system predicts the top 5
+            courses
+            each student is likely to request, and suggests courses within the top 5 for any students.
+            Our predictive model updates after evey term, so it may be inaccurate at first.
+            However, It should improve as more data is analyzed!
+        </p>
     </div>
-    <div id="collapse-body" class="panel-collapse collapse">
-        <div class="panel-body">
-            <table class="table table-striped">
-                <thead>
-                <tr>
-                    <th>Course ID</th>
-                    <th>Predicted Fraction of Requests</th>
-                </tr>
-                </thead>
-                <tbody>
-                {% for course_id in overall_course_ids %}
-                <tr>
-                    <td>{{ course_id }}</td>
-                    <td>{{ expected_fraction_of_requests[loop.index0] }}</td>
-                </tr>
-                {% endfor %}
-                </tbody>
-            </table>
-            <div class="table-responsive">
-            <table class="table table-striped">
-                <thead>
-                <tr>
-                    <th>Student</th>
-                    {% for course_id in student_course_ids %}
-                    <th>{{'Course ' ~ course_id}}</th>
+    <div class="panel panel-default">
+        <div class="panel-heading">
+            <h3 class="panel-title">
+                <a data-toggle="collapse" href="#collapse-body">Predictive Model Output Details</a>
+            </h3>
+        </div>
+        <div id="collapse-body" class="panel-collapse collapse">
+            <div class="panel-body">
+                <table class="table table-striped">
+                    <thead>
+                    <tr>
+                        <th>Course ID</th>
+                        <th>Predicted Fraction of Requests</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    {% for course_id in overall_course_ids %}
+                    <tr>
+                        <td>{{ course_id }}</td>
+                        <td>{{ expected_fraction_of_requests[loop.index0] }}</td>
+                    </tr>
                     {% endfor %}
-                </tr>
-                </thead>
-                <tbody>
-                {% for row in student_probs %}
-                <tr>
-                    <td>{{ students[loop.index0].name }}</td>
-                    {% for prob in row %}
-                    <td>{{ prob }}</td>
-                    {% endfor %}
-                </tr>
-                {% endfor %}
-                </tbody>
-            </table>
+                    </tbody>
+                </table>
+                <div class="table-responsive">
+                    <table class="table table-striped">
+                        <thead>
+                        <tr>
+                            <th>Student</th>
+                            {% for course_id in student_course_ids %}
+                            <th>{{'Course ' ~ course_id}}</th>
+                            {% endfor %}
+                        </tr>
+                        </thead>
+                        <tbody>
+                        {% for row in student_probs %}
+                        <tr>
+                            <td>{{ students[loop.index0].name }}</td>
+                            {% for prob in row %}
+                            <td>{{ prob }}</td>
+                            {% endfor %}
+                        </tr>
+                        {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
             </div>
         </div>
     </div>
-</div>
-{% endif %}
+    {% endif %}
 
-<form id="assign-instructors" action="/assign-instructors" method="POST">
-    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/> <br>
-    <table class="table table-striped">
-        <thead>
-        <tr>
-            <th>Id</th>
-            <th>Name</th>
-            <th>Cost</th>
-            <th>Instructor</th>
-            {% if courses[0].num_requests is defined %}
-            <th>Number of Requests</th>
-            {% endif %}
-        </tr>
-        </thead>
-        <tbody>
-        {% for course in courses %}
-        <tr {% if overall_course_ids is defined and course.id in overall_course_ids %} class="info" {% endif %}>
-            <td>{{ course.id }}</td>
-            <td>{{ course.name }}</td>
-            <td>${{ course.cost }}</td>
-            <td>
-                <select id={{course.id}} class="selectpicker" data-live-search="true" name={{course.id}}>
-                    <option id="-1"></option>
-                    {% for instructor in instructors %}
-                    {% if instructor.course_id == course.id %}
-                    <option selected="selected" name="instructor_option">{{instructor.name}}</option>
-                    {% else %}
-                    <option name="instructor_option">{{instructor.name}}</option>
-                    {% endif %}
-                    {% endfor %}
-                </select>
-            </td>
-            {% if course.num_requests is defined %}
-            <td>
-                {{course.num_requests}}
-            </td>
-            {% endif %}
-        </tr>
-        {% endfor %}
-        </tbody>
-    </table>
-    <button class="btn btn-default" type="submit" id="save-instructor-assignments-button">Save Assignments</button>
-</form>
+    <form id="assign-instructors" action="/assign-instructors" method="POST">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/> <br>
+        <table class="table table-striped">
+            <thead>
+            <tr>
+                <th>Id</th>
+                <th>Name</th>
+                <th>Cost</th>
+                <th>Instructor</th>
+                {% if courses[0].num_requests is defined %}
+                <th>Number of Requests</th>
+                {% endif %}
+            </tr>
+            </thead>
+            <tbody>
+            {% for course in courses %}
+            <tr {% if overall_course_ids is defined and course.id in overall_course_ids %} class="info" {% endif %}>
+                <td>{{ course.id }}</td>
+                <td>{{ course.name }}</td>
+                <td>${{ course.cost }}</td>
+                <td>
+                    <select id={{course.id}} class="selectpicker" data-live-search="true" name={{course.id}}>
+                        <option id="-1"></option>
+                        {% for instructor in instructors %}
+                        {% if instructor.course_id == course.id %}
+                        <option selected="selected" name="instructor_option">{{instructor.name}}</option>
+                        {% else %}
+                        <option name="instructor_option">{{instructor.name}}</option>
+                        {% endif %}
+                        {% endfor %}
+                    </select>
+                </td>
+                {% if course.num_requests is defined %}
+                <td>
+                    {{course.num_requests}}
+                </td>
+                {% endif %}
+            </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+        <button class="btn btn-default" type="submit" id="save-instructor-assignments-button">Save Assignments</button>
+    </form>
+</div>
 {% endblock %}

@@ -3,13 +3,15 @@
 
 {% block content %}
 {% from "form-helpers.html" import render_field %}
-<form action="/register" method="POST">
-    {{ form.csrf_token }}
-    {{ render_field(form.username) }}
-    {{ render_field(form.email) }}
-    {{ render_field(form.password) }}
-    {{ render_field(form.confirm_password) }}
-    <button class="btn btn-default" type=submit>Register</button>
-</form>
-<a href="{{url_for('login')}}">Already registered? Log in here!</a>
+<div class="container-fluid">
+    <form action="/register" method="POST">
+        {{ form.csrf_token }}
+        {{ render_field(form.username) }}
+        {{ render_field(form.email) }}
+        {{ render_field(form.password) }}
+        {{ render_field(form.confirm_password) }}
+        <button class="btn btn-default" type=submit>Register</button>
+    </form>
+    <a href="{{url_for('login')}}">Already registered? Log in here!</a>
+</div>
 {% endblock %}

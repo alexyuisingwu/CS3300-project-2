@@ -6,40 +6,42 @@
 {% endblock %}
 
 {% block content %}
+<div class="container-fluid">
 
-{% if records %}
-<h3>Academic Records</h3>
+    {% if records %}
+    <h3>Academic Records</h3>
 
-<table class="table table-striped">
-    <thead>
-    <tr>
-        <th>Student ID</th>
-        <th>Student Name</th>
-        <th>Course ID</th>
-        <th>Course Name</th>
-        <th>Year</th>
-        <th>Term</th>
-        <th>Grade</th>
-    </tr>
-    </thead>
-    <tbody>
-    {% for record in records %}
-    <tr>
-        <td>{{ record.student_id }}</td>
-        <td>{{ record.student_name }}</td>
-        <td>{{ record.course_id }}</td>
-        <td>{{ record.course_name }}</td>
-        <td>{{ record.year }}</td>
-        <td>{{ get_term_name(record.term) }}</td>
-        <td>{{ record.grade }}</td>
-    </tr>
-    {% endfor %}
-    </tbody>
-</table>
-{% else %}
-<div class="alert alert-info" role="alert">
+    <table class="table table-striped">
+        <thead>
+        <tr>
+            <th>Student ID</th>
+            <th>Student Name</th>
+            <th>Course ID</th>
+            <th>Course Name</th>
+            <th>Year</th>
+            <th>Term</th>
+            <th>Grade</th>
+        </tr>
+        </thead>
+        <tbody>
+        {% for record in records %}
+        <tr>
+            <td>{{ record.student_id }}</td>
+            <td>{{ record.student_name }}</td>
+            <td>{{ record.course_id }}</td>
+            <td>{{ record.course_name }}</td>
+            <td>{{ record.year }}</td>
+            <td>{{ get_term_name(record.term) }}</td>
+            <td>{{ record.grade }}</td>
+        </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <div class="alert alert-info" role="alert">
         There are no records in the system as your students have not yet taken any courses.
+    </div>
+    {% endif %}
 </div>
-{% endif %}
 {% endblock %}
 

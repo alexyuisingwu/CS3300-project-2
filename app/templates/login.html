@@ -1,15 +1,15 @@
 {% extends "bases/guest-base.html" %}
 {% block title %}Login{% endblock %}
 {% block content %}
-<body>
-{% from "form-helpers.html" import render_field %}
-<form action="/login" method="POST">
-    {{ form.csrf_token }}
-    {{ render_field(form.username) }}
-    {{ render_field(form.password) }}
-    <button class="btn btn-default" type=submit>Log In</button>
-</form>
-<a href="{{url_for('register')}}">Don't have an account? Register here!</a>
-</body>
+<div class="container-fluid">
+    {% from "form-helpers.html" import render_field %}
+    <form action="/login" method="POST">
+        {{ form.csrf_token }}
+        {{ render_field(form.username) }}
+        {{ render_field(form.password) }}
+        <button class="btn btn-default" type=submit>Log In</button>
+    </form>
+    <a href="{{url_for('register')}}">Don't have an account? Register here!</a>
+</div>
 {% endblock %}
 

@@ -3,96 +3,97 @@
 {% block title %}Request Report{% endblock %}
 
 {% block content %}
+<div class="container-fluid">
 
-<h1>{{get_term_name(current_user.current_term) ~ " Request Report"}}</h1>
 
-<button class="btn-default"><a href="/success-management">Success Record</a></button>
+    <h1>{{get_term_name(current_user.current_term) ~ " Request Report"}}</h1>
+    <a class="btn btn-default" href="/success-management" role="button">Success Record</a>
 
-{% if valid_requests %}
-<h3>Accepted Requests</h3>
-<table id="accepted-requests" class="table table-striped">
-    <thead>
-    <tr>
-        <th>Course ID</th>
-        <th>Course Name</th>
-        <th>Student ID</th>
-        <th>Student Name</th>
-    </tr>
-    </thead>
-    <tbody>
-    {% for row in valid_requests %}
+    {% if valid_requests %}
+    <h3>Accepted Requests</h3>
+    <table id="accepted-requests" class="table table-striped">
+        <thead>
+        <tr>
+            <th>Course ID</th>
+            <th>Course Name</th>
+            <th>Student ID</th>
+            <th>Student Name</th>
+        </tr>
+        </thead>
+        <tbody>
+        {% for row in valid_requests %}
         <tr class="success">
             <td>{{ row.course_id }}</td>
             <td>{{ row.course_name }}</td>
             <td>{{ row.student_id }}</td>
             <td>{{ row.student_name }}</td>
         </tr>
-    {% endfor %}
-    </tbody>
-</table>
-{% else %}
-<div class="alert alert-danger" role="alert">
-  <strong>Oh no!</strong> No requests were accepted.
-</div>
-{% endif %}
+        {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <div class="alert alert-danger" role="alert">
+        <strong>Oh no!</strong> No requests were accepted.
+    </div>
+    {% endif %}
 
-{% if reject_dict %}
-<h3>Rejected Requests</h3>
+    {% if reject_dict %}
+    <h3>Rejected Requests</h3>
 
-<table id="rejected-requests" class="table table-striped">
-    <thead>
-    <tr>
-        <th>Course ID</th>
-        <th>Course Name</th>
-        <th>Student ID</th>
-        <th>Student Name</th>
-        <th>Reason for Rejection</th>
-    </tr>
-    </thead>
-    <tbody>
-    {% for (student_id, course_id), info in reject_dict|dictsort %}
-    <tr class="danger">
-        <td>{{ course_id }}</td>
-        <td>{{ info.course_name }}</td>
-        <td>{{ student_id }}</td>
-        <td>{{ info.student_name }}</td>
-        <td>
-            <ul>
-                {% if info.no_instructor %}
-                <ol>No instructor</ol>
-                {% endif %}
-                {% if info.missing_prereqs is defined %}
-                <strong>Missing Prerequisites</strong>
+    <table id="rejected-requests" class="table table-striped">
+        <thead>
+        <tr>
+            <th>Course ID</th>
+            <th>Course Name</th>
+            <th>Student ID</th>
+            <th>Student Name</th>
+            <th>Reason for Rejection</th>
+        </tr>
+        </thead>
+        <tbody>
+        {% for (student_id, course_id), info in reject_dict|dictsort %}
+        <tr class="danger">
+            <td>{{ course_id }}</td>
+            <td>{{ info.course_name }}</td>
+            <td>{{ student_id }}</td>
+            <td>{{ info.student_name }}</td>
+            <td>
+                <ul>
+                    {% if info.no_instructor %}
+                    <ol>No instructor</ol>
+                    {% endif %}
+                    {% if info.missing_prereqs is defined %}
+                    <strong>Missing Prerequisites</strong>
                     {% for prereq in info.missing_prereqs%}
-                        <ol>{{prereq.name}}</ol>
+                    <ol>{{prereq.name}}</ol>
                     {% endfor %}
-                {% endif %}
+                    {% endif %}
 
-            </ul>
-        </td>
-    </tr>
-    {% endfor %}
+                </ul>
+            </td>
+        </tr>
+        {% endfor %}
 
-    </tbody>
-</table>
-{% else %}
-<div class="alert alert-success" role="alert">
-  <strong>Good job!</strong> All requests were fulfilled!
-</div>
-{% endif %}
+        </tbody>
+    </table>
+    {% else %}
+    <div class="alert alert-success" role="alert">
+        <strong>Good job!</strong> All requests were fulfilled!
+    </div>
+    {% endif %}
 
-<form action="/request-report" method="POST">
-    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/> <br>
-    <!--hacky workaround for only modifying database (updating records) on POST request-->
-    {% for row in valid_requests %}
+    <form action="/request-report" method="POST">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/> <br>
+        <!--hacky workaround for only modifying database (updating records) on POST request-->
+        {% for row in valid_requests %}
         <input type="hidden" name="{{row.student_id}}" value="{{row.course_id}}">
-    {% endfor %}
+        {% endfor %}
 
-    {% for row in no_instructor_requests %}
+        {% for row in no_instructor_requests %}
         <input type="hidden" name="{{-row.student_id}}" value="{{-row.course_id}}">
-    {% endfor %}
+        {% endfor %}
 
-    <button class="btn btn-default" type="submit" id="next-term-button"> Move on to Next Term </button>
-</form>
-
+        <button class="btn btn-default" type="submit" id="next-term-button"> Move on to Next Term</button>
+    </form>
+</div>
 {% endblock %}

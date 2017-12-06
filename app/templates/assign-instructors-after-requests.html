@@ -15,65 +15,69 @@
 {% endblock %}
 
 {% block content %}
-<h1>{{get_term_name(current_user.current_term)}}</h1>
-<h3>Assign Courses</h3>
 
-<p>
-    Now that you've seen the demand for each course, you can reassign at most 1 instructor.
-</p>
-<div id="errors" class="alert alert-danger" role="alert" hidden>
-    <strong>Error!</strong> You have made more than 1 change to instructor assignment.
-</div>
-<form id="assign-instructors" action="/assign-instructors-after-requests" method="POST">
-    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/> <br>
-    <table class="table table-striped">
-        <thead>
-        <tr>
-            <th>Id</th>
-            <th>Name</th>
-            <th>Cost</th>
-            <th>Instructor</th>
-            {% if courses[0].num_requests is defined %}
-            <th>Number of Requests</th>
-            {% endif %}
-        </tr>
-        </thead>
-        <tbody>
-        {% for course in courses %}
-        <tr {% if course.num_requests > 0 %}
+<div class="container-fluid">
+
+    <h1>{{get_term_name(current_user.current_term)}}</h1>
+    <h3>Assign Courses</h3>
+
+    <p>
+        Now that you've seen the demand for each course, you can reassign at most 1 instructor.
+    </p>
+    <div id="errors" class="alert alert-danger" role="alert" hidden>
+        <strong>Error!</strong> You have made more than 1 change to instructor assignment.
+    </div>
+    <form id="assign-instructors" action="/assign-instructors-after-requests" method="POST">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/> <br>
+        <table class="table table-striped">
+            <thead>
+            <tr>
+                <th>Id</th>
+                <th>Name</th>
+                <th>Cost</th>
+                <th>Instructor</th>
+                {% if courses[0].num_requests is defined %}
+                <th>Number of Requests</th>
+                {% endif %}
+            </tr>
+            </thead>
+            <tbody>
+            {% for course in courses %}
+            <tr {% if course.num_requests> 0 %}
                 {% if course.instructor is none %}
                 class="danger"
                 {% else %}
                 class="success"
                 {% endif %}
-            {% elif course.instructor is not none %}
+                {% elif course.instructor is not none %}
                 class="warning"
-            {% endif %}
-        >
-            <td>{{ course.id }}</td>
-            <td>{{ course.name }}</td>
-            <td>${{ course.cost }}</td>
-            <td>
-                <select id={{course.id}} class="selectpicker" data-live-search="true" name={{course.id}}>
-                    <option id="-1"></option>
-                    {% for instructor in instructors %}
-                    {% if instructor.course_id == course.id %}
-                    <option selected="selected" name="instructor_option">{{instructor.name}}</option>
-                    {% else %}
-                    <option name="instructor_option">{{instructor.name}}</option>
-                    {% endif %}
-                    {% endfor %}
-                </select>
-            </td>
-            {% if course.num_requests is defined %}
-            <td>
-                {{course.num_requests}}
-            </td>
-            {% endif %}
-        </tr>
-        {% endfor %}
-        </tbody>
-    </table>
-    <button class="btn btn-default" type="submit" id="save-instructor-assignments-button">Save Assignments</button>
-</form>
+                {% endif %}
+                >
+                <td>{{ course.id }}</td>
+                <td>{{ course.name }}</td>
+                <td>${{ course.cost }}</td>
+                <td>
+                    <select id={{course.id}} class="selectpicker" data-live-search="true" name={{course.id}}>
+                        <option id="-1"></option>
+                        {% for instructor in instructors %}
+                        {% if instructor.course_id == course.id %}
+                        <option selected="selected" name="instructor_option">{{instructor.name}}</option>
+                        {% else %}
+                        <option name="instructor_option">{{instructor.name}}</option>
+                        {% endif %}
+                        {% endfor %}
+                    </select>
+                </td>
+                {% if course.num_requests is defined %}
+                <td>
+                    {{course.num_requests}}
+                </td>
+                {% endif %}
+            </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+        <button class="btn btn-default" type="submit" id="save-instructor-assignments-button">Save Assignments</button>
+    </form>
+</div>
 {% endblock %}
