@@ -15,7 +15,6 @@ from app.utils.utils import is_safe_url, get_random_grade, get_term_year
 EXCLUDED_PATHS_FOR_SAVING = {'/', '/logout', '/academic-records', '/success-management', '/return-to-simulation'}
 
 
-# TODO: resume simulation navbar button on non-simulation pages
 # saves current page of user to restore progress after logout
 @app.url_value_preprocessor
 def save_path(endpoint, values):
@@ -44,7 +43,6 @@ def return_to_simulation():
         return redirect(path)
 
 
-# TODO: refactor to use transaction
 @app.route('/register', methods=['GET', 'POST'])
 def register():
     form = RegistrationForm()
@@ -105,7 +103,6 @@ def upload_csvs():
     return json.dumps({'success': True}), 200, {'ContentType': 'application/json'}
 
 
-# TODO: consider error message if any instructors unassigned
 @app.route('/assign-instructors', methods=['GET', 'POST'])
 @login_required
 def assign_instructors():
@@ -142,7 +139,7 @@ def assign_instructors():
 @login_required
 def assign_instructors_after_requests():
     user_id = current_user.id
-    # TODO: consider changing number of requests to number of valid requests (accounting for prereqs)
+    # TODO: consider changing number of requests to number of valid requests (accounting for prereqs). Check if meets specifications first.
     if request.method == 'GET':
         query = sqlalchemy.text("""SELECT t1.id, 
                                course.name, 
@@ -316,6 +313,7 @@ def request_report():
             connection.execute('drop table if exists request_missing_instructor')
             connection.execute('drop table if exists request_missing_prereq')
 
+        # TODO: consider querying database rather than passing data in forms or sessions
         # (students currently request courses they've already passed and also request courses they cannot take)
         return render_template('request-report.html', reject_dict=reject_dict, valid_requests=valid_requests,
                                no_instructor_requests=no_instructor_requests)
@@ -362,7 +360,6 @@ def request_report():
                 mlb = MultiLabelBinarizer(classes=attributes, sparse_output=True).fit(None)
 
                 # TODO: consider filtering out suggestions for classes the student can't take due to prereqs
-                # TODO: consider only displaying requests student can take with their prereqs on switch assignment page
                 # TODO: parameter tuning
                 # identity activation as input is binary
                 # very large regularization to punish overcomplex models
@@ -383,7 +380,6 @@ def request_report():
             X = []
             y = []
 
-            # TODO: fix so takes into account invalid requests (some requests failed just because no instructor)
             # creates input X = courses taken
             # creates output y = courses requested
             for student_id, course_ids in courses_requested.items():
@@ -617,9 +613,5 @@ def success_management():
 
     return render_template('success-management.html', count=valid_requests_count, total=total_requests_count,
                            label=labels, values=values, cost=cost)
-
-# TODO: use apriori to predict student requests
-# TODO: consider either: (pairing each request with all requests in previous term) OR
-# TODO: (column for each course and whether it has been taken, output columns of each course and whether the student takes it)
 
 # NOTE: problem with course approach is number of courses not known until file upload (runtime), and potentially different per user

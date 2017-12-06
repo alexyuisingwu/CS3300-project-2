@@ -10,7 +10,7 @@ from sqlalchemy.types import *
 
 from app import db, bcrypt
 
-
+# TODO: consider creating Simulation table and changing account_id foreign keys in tables to simulation_id (more intuitive and allows for multiple simulations per account)
 # TODO: find out if simulation allows for uploading csvs/data. Otherwise, some tables can have user_id removed (like course)
 class MyMixin(object):
     @classmethod
@@ -207,10 +207,8 @@ class AcademicRecord(db.Model, MyMixin):
     user_id = db.Column(Integer, nullable=False)
     student_id = db.Column(Integer, nullable=False)
     course_id = db.Column(Integer, nullable=False)
-    # TODO: consider converting to enum (A, B, C, D, F)
     grade = db.Column(CHAR(1), nullable=False)
     year = db.Column(SmallInteger, nullable=False)
-    # TODO: consider converting to enum (1, 2, 3, 4) for (Winter, Spring, Summer, Fall)
     term = db.Column(SmallInteger, nullable=False)
     PrimaryKeyConstraint(user_id, student_id, course_id, year, term)
     ForeignKeyConstraint([user_id], [Account.id], ondelete='CASCADE')
@@ -278,7 +276,6 @@ class RequestPrediction(db.Model):
     _mlb = db.Column('mlb', LargeBinary, nullable=True)
     ForeignKeyConstraint([user_id], [Account.id], ondelete='CASCADE')
 
-    # TODO: expected value (number of requests for each course, return top k courses where k = number of instructors
     # X is list of lists, where each list contains the course_ids that a student has taken
     # returns matrix where each row contains the course ids of the top k requests predicted for the corresponding row in X
     def predict_requests_by_course_ids(self, X, return_detailed_stats=False):
