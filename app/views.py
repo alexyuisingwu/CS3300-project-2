@@ -435,7 +435,7 @@ def restart_simulation():
     current_user.restart_simulation()
     return redirect(url_for('assign_instructors'))
 
-
+# TODO: consider refactoring raw SQL to sqlalchemy
 # TODO: move queries into helper functions
 @app.route('/success-management', methods=['GET', 'POST'])
 @login_required
@@ -475,7 +475,8 @@ def success_management():
                                               AND student.id = request.student_id;""")
             connection.execute(query, user_id=current_user.id, term=current_user.current_term)
 
-            no_instructor_requests = connection.execute('select * from request_missing_instructor').fetchall()
+            no_instructor_requests_count = connection.execute(
+                'select count(*) from request_missing_instructor').scalar()
 
             connection.execute('drop table if exists request_missing_prereq')
 
@@ -509,10 +510,10 @@ def success_management():
                                                       AND grade NOT IN ( 'D', 'F' ) 
                                                       AND course_id = prereq_id);""")
             connection.execute(query, user_id=current_user.id, term=current_user.current_term)
-            missing_prereqs = connection.execute('select * from request_missing_prereq')
+            missing_prereqs_count = connection.execute('select count(*) from request_missing_prereq').scalar()
 
             # selects all valid requests by subtracting all user requests from invalid requests
-            valid_query = sqlalchemy.text("""SELECT COUNT(request.course_id)
+            valid_query = sqlalchemy.text("""SELECT COUNT(*)
                             FROM   request 
                                    INNER JOIN course 
                                            ON request.user_id = course.user_id 
@@ -535,7 +536,7 @@ def success_management():
             """)
             valid_requests_count = connection.execute(valid_query,
                                                       term=current_user.current_term,
-                                                      user_id=current_user.id).fetchall()
+                                                      user_id=current_user.id).scalar()
 
             cost_query = sqlalchemy.text("""SELECT SUM(course_cost) 
                                 FROM (SELECT course.cost as course_cost
@@ -558,49 +559,16 @@ def success_management():
                                                           request_missing_prereq.course_id)); 
                             """)
 
-            cost = connection.execute(cost_query, term=current_user.current_term, user_id=current_user.id).fetchall()
+            cost = connection.execute(cost_query, term=current_user.current_term, user_id=current_user.id).scalar()
 
-            total_query = sqlalchemy.text("""SELECT COUNT(request.course_id)
-                            FROM   request 
-                                   INNER JOIN course 
-                                           ON request.user_id = course.user_id 
-                                              AND request.course_id = course.id 
-                                   INNER JOIN student 
-                                           ON request.user_id = student.user_id 
-                                              AND request.student_id = student.id 
-                                    WHERE  request.user_id = :user_id 
-                                   AND request.term = :term 
-            """)
-            total_requests_count = connection.execute(total_query, term=current_user.current_term,
-                                                      user_id=current_user.id).fetchall();
+            total_requests_count = no_instructor_requests_count + missing_prereqs_count + valid_requests_count
 
-            reject_dict = {}
-
-            for row in no_instructor_requests:
-                reject_dict[(row.student_id, row.course_id)] = \
-                    {'course_name': row.course_name, 'student_name': row.student_name, 'no_instructor': True}
-
-            for row in missing_prereqs:
-                key = (row.student_id, row.course_id)
-                # request already rejected as course has no instructor (so course_name and student_name already set)
-                if key in reject_dict:
-                    if 'missing_prereqs' in reject_dict[key]:
-                        reject_dict[key]['missing_prereqs'].append({'id': row.prereq_id, 'name': row.prereq_name})
-                    else:
-                        reject_dict[key]['missing_prereqs'] = [{'id': row.prereq_id, 'name': row.prereq_name}]
-                else:
-                    reject_dict[key] = {
-                        'missing_prereqs': [{'id': row.prereq_id, 'name': row.prereq_name}],
-                        'course_name': row.course_name,
-                        'student_name': row.student_name
-                    }
             connection.execute('drop table if exists course_helper')
             connection.execute('drop table if exists request_missing_instructor')
             connection.execute('drop table if exists request_missing_prereq')
 
             labels = ["Valid Request", "Invalid Request"]
-            values = [int(valid_requests_count[0][0]),
-                      int(total_requests_count[0][0]) - int(valid_requests_count[0][0])]
+            values = [valid_requests_count, total_requests_count - valid_requests_count]
 
-    return render_template('success-management.html', count=valid_requests_count, total=total_requests_count,
-                           label=labels, values=values, cost=cost)
+        return render_template('success-management.html', count=valid_requests_count, total=total_requests_count,
+                               label=labels, values=values, cost=cost)
