@@ -536,8 +536,7 @@ def success_management():
                                                       term=current_user.current_term,
                                                       user_id=current_user.id).scalar()
 
-            cost_query = sqlalchemy.text("""SELECT SUM(course_cost) 
-                                FROM (SELECT course.cost as course_cost
+            cost_query = sqlalchemy.text("""SELECT SUM(course.cost)
                             FROM   request 
                                    INNER JOIN course 
                                            ON request.user_id = course.user_id 
@@ -550,11 +549,11 @@ def success_management():
                                    AND NOT EXISTS (SELECT 1 
                                                    FROM   request_missing_instructor 
                                                    WHERE  request.course_id = 
-                            request_missing_instructor.course_id) 
+                            request_missing_instructor.course_id)
                                    AND NOT EXISTS (SELECT 1 
                                                    FROM   request_missing_prereq 
                                                    WHERE  request.course_id = 
-                                                          request_missing_prereq.course_id)); 
+                                                          request_missing_prereq.course_id); 
                             """)
 
             cost = connection.execute(cost_query, term=current_user.current_term, user_id=current_user.id).scalar()
