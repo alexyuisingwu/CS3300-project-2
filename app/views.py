@@ -12,7 +12,7 @@ from app.models import Account, Course, Instructor, AcademicRecord, RequestPredi
 from app.utils.database_utils import import_csv_by_file, import_csvs_by_filepath
 from app.utils.utils import is_safe_url, get_random_grade, get_term_year
 
-EXCLUDED_PATHS_FOR_SAVING = {'/', '/logout', '/academic_records', 'success-management'}
+EXCLUDED_PATHS_FOR_SAVING = {'/', '/logout', '/academic-records', '/success-management', '/return-to-simulation'}
 
 
 # TODO: resume simulation navbar button on non-simulation pages
@@ -31,11 +31,17 @@ def index():
     if current_user.is_anonymous:
         return redirect(url_for('login'))
     else:
-        path = current_user.current_path
-        if path == '/':
-            return redirect(url_for('assign_instructors'))
-        else:
-            return redirect(path)
+        return redirect(url_for('return_to_simulation'))
+
+
+@app.route('/return-to-simulation')
+@login_required
+def return_to_simulation():
+    path = current_user.current_path
+    if path == '/':
+        return redirect(url_for('assign_instructors'))
+    else:
+        return redirect(path)
 
 
 # TODO: refactor to use transaction
@@ -362,6 +368,7 @@ def request_report():
                 # very large regularization to punish overcomplex models
                 # (true relationship is likely fairly simple direct prereq check)
 
+                # TODO: consider encoding membership in course as -1, 1 instead for input
                 # hidden layer should be between size of input and output layers
                 model = MLPClassifier(solver='sgd', hidden_layer_sizes=(len(attributes), len(attributes)))
 

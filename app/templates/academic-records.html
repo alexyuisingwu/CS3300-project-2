@@ -1,6 +1,10 @@
 {% extends "bases/logged-in-base.html" %}
 {% block title %}Academic Records{% endblock %}
 
+{% block navbar %}
+{% include "partials/outside-simulation-flow-navigation-bar.html" %}
+{% endblock %}
+
 {% block content %}
 
 {% if records %}
