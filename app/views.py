@@ -12,19 +12,8 @@ from app.models import Account, Course, Instructor, AcademicRecord, RequestPredi
 from app.utils.database_utils import import_csv_by_file, import_csvs_by_filepath
 from app.utils.utils import is_safe_url, get_random_grade, get_term_year
 
-EXCLUDED_PATHS_FOR_SAVING = {'/', '/logout', '/academic-records', '/success-management', '/return-to-simulation'}
 
-
-# saves current page of user to restore progress after logout
-@app.url_value_preprocessor
-def save_path(endpoint, values):
-    if not current_user.is_anonymous:
-        path = request.path
-        if path not in EXCLUDED_PATHS_FOR_SAVING:
-            current_user.save_path(request.path)
-    return None
-
-
+# TODO: consider converting to landing/home page with test data selection and/or user data upload
 @app.route('/')
 def index():
     if current_user.is_anonymous:
@@ -36,11 +25,9 @@ def index():
 @app.route('/return-to-simulation')
 @login_required
 def return_to_simulation():
-    path = current_user.current_path
-    if path == '/':
+    if current_user.current_path == '/':
         return redirect(url_for('assign_instructors'))
-    else:
-        return redirect(path)
+    return redirect(current_user.current_path)
 
 
 @app.route('/register', methods=['GET', 'POST'])
@@ -91,6 +78,7 @@ def logout():
     return redirect(url_for('index'))
 
 
+# TODO: either delete or reintroduce csv upload option
 # TODO: error messages for upload problems
 @app.route('/csvs', methods=['GET', 'POST'])
 @login_required
@@ -108,6 +96,7 @@ def upload_csvs():
 def assign_instructors():
     user_id = current_user.id
     if request.method == 'GET':
+        current_user.save_path(request.path)
         courses = Course.query.filter_by(user_id=user_id).order_by(Course.id)
         instructors = Instructor.query.filter_by(user_id=user_id).order_by(Instructor.name)
 
@@ -141,6 +130,7 @@ def assign_instructors_after_requests():
     user_id = current_user.id
     # TODO: consider changing number of requests to number of valid requests (accounting for prereqs). Check if meets specifications first.
     if request.method == 'GET':
+        current_user.save_path(request.path)
         query = sqlalchemy.text("""SELECT t1.id, 
                                course.name, 
                                cost, 
@@ -191,6 +181,7 @@ def assign_instructors_after_requests():
 @login_required
 def request_report():
     if request.method == 'GET':
+        current_user.save_path(request.path)
         with db.engine.begin() as connection:
             connection.execute('drop table if exists course_helper')
             # tracks courses for current user. instructor_id is id of assigned instructor (NULL if course unassigned)
@@ -613,5 +604,3 @@ def success_management():
 
     return render_template('success-management.html', count=valid_requests_count, total=total_requests_count,
                            label=labels, values=values, cost=cost)
-
-# NOTE: problem with course approach is number of courses not known until file upload (runtime), and potentially different per user

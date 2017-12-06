@@ -67,6 +67,7 @@ class Account(db.Model, UserMixin):
 
     def restart_simulation(self):
         self.current_term = 0
+        self.current_path = '/'
         db.session.query(Instructor).filter_by(user_id=self.id).update({'course_id': None})
         db.session.query(AcademicRecord).filter_by(user_id=self.id).delete()
         db.session.query(RequestPrediction).filter_by(user_id=self.id).update({'_model': None, '_mlb': None})
