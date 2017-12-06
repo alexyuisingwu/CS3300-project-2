@@ -530,9 +530,7 @@ def success_management():
                                    AND NOT EXISTS (SELECT 1 
                                                    FROM   request_missing_prereq 
                                                    WHERE  request.course_id = 
-                                                          request_missing_prereq.course_id) 
-                            ORDER  BY request.student_id, 
-                                      request.course_id; 
+                                                          request_missing_prereq.course_id); 
             """)
             valid_requests_count = connection.execute(valid_query,
                                                       term=current_user.current_term,
